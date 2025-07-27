@@ -14,13 +14,15 @@ st.caption("Visualisasi interaktif data transaksi dan komentar masyarakat untuk 
 # =====================
 # Load Data
 # =====================
-@st.cache_data
 def load_data():
-    df_transaksi = pd.read_excel("hasil_analisis_segmentasi.xlsx", parse_dates=["timestamp"])
+    df_transaksi = pd.read_excel("hasil_analisis_segmentasi.xlsx")
+    df_transaksi['timestamp'] = pd.to_datetime(df_transaksi['datetime'])  # Ganti dari datetime
+
     df_sentimen = pd.read_excel("hasil_analisis_sentimen_lengkap.xlsx", parse_dates=["timestamp"])
+    df_sentimen.rename(columns={"label_sentimen": "sentimen"}, inplace=True)  # Standarisasi nama kolom sentimen
+
     return df_transaksi, df_sentimen
 
-df_transaksi, df_sentimen = load_data()
 
 # =====================
 # Sidebar Filter
