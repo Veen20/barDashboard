@@ -190,11 +190,14 @@ with tab2:
         ax3.set_title("Distribusi Sentimen")
         st.pyplot(fig3)
 
-    with col4:        
+    with col4:              
         st.markdown("**Distribusi Sentimen per Hari**")
     
         # Pastikan tanggal sudah datetime dan bersih
         df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
+    
+        # Buang komentar tanpa tanggal valid
+        df_komentar = df_komentar.dropna(subset=['tanggal'])
     
         # Ubah nama hari ke bahasa Indonesia
         hari_mapping = {
@@ -233,6 +236,7 @@ with tab2:
         ax4.legend(title="Kategori Sentimen")
         ax4.grid(axis='y')
         st.pyplot(fig4)
+
 
 
 with tab3:
