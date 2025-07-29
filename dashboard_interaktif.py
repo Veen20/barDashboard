@@ -190,27 +190,32 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-       # Hitung jumlah sentimen per hari
-        sentimen_harian = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
-        
-        # Urutkan hari agar tidak acak
-        urutan_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        sentimen_harian = sentimen_harian.reindex(urutan_hari).fillna(0)
-        
-        # Ganti warna sesuai label
-        warna_dict = {'Positif': 'gray', 'Negatif': 'lightseagreen', 'Netral': 'khaki'}
-        
-        # Plot
-        sentimen_harian.plot(kind='bar', stacked=False, color=[warna_dict.get(col, 'black') for col in sentimen_harian.columns])
-        plt.title('Distribusi Sentimen per Hari')
-        plt.xlabel('Hari')
-        plt.ylabel('Jumlah Komentar')
-        plt.legend(title='Sentimen')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.show()
-
-
+        # Ubah nama hari ke Bahasa Indonesia
+        hari_mapping = {
+            'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
+            'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
+        }
+        df_komentar['hari'] = df_komentar['hari'].map(hari_mapping)
+    
+        # Buat dataframe semua kombinasi hari x sentimen
+        semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        semua_sentimen = ['Positif', 'Netral', 'Negatif']
+        index_kombinasi = pd.MultiIndex.from_product([semua_hari, semua_sentimen], names=['hari', 'kategori_sentimen'])
+    
+        # Hitung jumlah komentar per kombinasi hari x sentimen
+        sentimen_harian = df_komentar.groupby(['hari', 'kategori_sentimen']).size().reindex(index_kombinasi, fill_value=0).unstack()
+    
+        # Buat plot
+        fig4, ax4 = plt.subplots()
+        warna_dict = {'Positif': 'gray', 'Netral': 'khaki', 'Negatif': 'lightseagreen'}
+        sentimen_harian.plot(kind='bar', stacked=False, color=[warna_dict.get(col, 'black') for col in sentimen_harian.columns], ax=ax4)
+    
+        ax4.set_title("Distribusi Sentimen per Hari")
+        ax4.set_xlabel("Hari")
+        ax4.set_ylabel("Jumlah Komentar")
+        ax4.legend(title="Sentimen")
+        ax4.set_xticklabels(ax4.get_xticklabels(), rotation=45)
+        st.pyplot(fig4)
 
 
 with tab3:
