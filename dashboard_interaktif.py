@@ -115,7 +115,6 @@ with tab_visual_komentar:
 # TAB 4: KOMENTAR TERBARU
 # ===============================
 with tab_komentar:
-        st.subheader("💬 Tabel Komentar Publik")
         st.dataframe(df_komentar, use_container_width=True)
 
         if 'ulasan' in df_komentar.columns:
