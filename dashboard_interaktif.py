@@ -206,13 +206,13 @@ with tab2:
         hari_urut = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
         df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urut, ordered=True)
         df_komentar['kategori_sentimen'] = pd.Categorical(
-            df_komentar['kategori_sentimen'], categories=['positif', 'netral', 'negatif'])
+            df_komentar['kategori_sentimen'], categories=['Positif', 'Netral', 'Negatif'])
         
         # 4. Grouping dan hitung
         sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
         
         # 5. Pastikan kolom sentimen lengkap meskipun isinya nol
-        for kategori in ['positif', 'netral', 'negatif']:
+        for kategori in ['Positif', 'Netral', 'Negatif']:
             if kategori not in sentimen_hari.columns:
                 sentimen_hari[kategori] = 0
         
@@ -221,7 +221,7 @@ with tab2:
         
         # 7. Plot
         fig4, ax4 = plt.subplots(figsize=(10, 5))
-        sentimen_hari[['positif', 'netral', 'negatif']].plot(
+        sentimen_hari[['Positif', 'Netral', 'Negatif']].plot(
             kind='bar', stacked=True, colormap='Set2', ax=ax4)
         
         ax4.set_ylabel("Jumlah Komentar")
