@@ -20,7 +20,7 @@ try:
     client = gspread.authorize(creds)
 
     # Gunakan open_by_url untuk akurasi
-    spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1ja-GDWf5vzlovHyu0N47hvbgn1s2mfFxtX7gEWNzOOw/edit?usp=sharing")
+    spreadsheet = client.open("transaksi_komentar") 
 
     # Ambil worksheet
     sheet_transaksi = spreadsheet.worksheet("transaksi")
