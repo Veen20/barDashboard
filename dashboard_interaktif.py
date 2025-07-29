@@ -108,7 +108,25 @@ with tab1:
     df_hari['Nama Profil'] = df_hari['Profil Hari'].map({
         0: "Hari Sangat Tenang", 1: "Hari Sangat Sibuk", 2: "Hari Normal"
     })
-   
+
+    # Tambahkan kolom nama hari (Senin - Minggu)
+    df_hari['Hari'] = pd.to_datetime(df_hari.index).day_name(locale='id_ID')  # Atau gunakan strftime('%A') jika error
+    
+    # Mapping ke Bahasa Indonesia (kalau locale tidak berfungsi)
+    hari_mapping = {
+        'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
+        'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
+    }
+    df_hari['Hari'] = df_hari['Hari'].map(hari_mapping)
+    
+    # Urutkan nama hari
+    urutan_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+    df_hari['Hari'] = pd.Categorical(df_hari['Hari'], categories=urutan_hari, ordered=True)
+    
+    # Crosstab distribusi jumlah profil per nama hari
+    df_profil_hari = pd.crosstab(df_hari['Hari'], df_hari['Nama Profil'])
+
+       
     st.markdown("**Rata-Rata Jumlah Transaksi per Kategori Waktu untuk Tiap Profil Hari**")
     fig5, ax5 = plt.subplots(figsize=(10, 6))
     df_profil_hari.plot(kind='bar', stacked=False, ax=ax5, colormap='Set2')
