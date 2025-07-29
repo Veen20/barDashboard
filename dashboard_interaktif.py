@@ -22,7 +22,7 @@ st.title("📊 Dashboard Transaksi & Sentimen eSIGNAL")
 # ----------------------------
 # AUTENTIKASI GSPREAD
 # ----------------------------
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+scope = ["https://docs.google.com/spreadsheets/d/1NaV3vKTTRohc5DMdxM807S2sUkrNGobD0Tt0Bu9Uqx0/edit?usp=sharing"]
 creds_dict = json.loads(st.secrets["GOOGLE_SHEET_CREDENTIALS"])
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
