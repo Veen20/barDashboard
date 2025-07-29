@@ -123,8 +123,7 @@ with tab_komentar:
             for i, row in df_komentar.head(5).iterrows():
                 with st.expander(f"🗨️ Komentar {i+1}"):
                     st.write(row['ulasan'])
-            
-
+                    
 # ===============================
 # CATATAN PENUTUP
 # ===============================
