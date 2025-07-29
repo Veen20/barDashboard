@@ -17,8 +17,8 @@ client = gspread.authorize(creds)
 spreadsheet = client.open("spreadsheet Analisis Transaksi & komentar")
 
 # Ambil masing-masing worksheet
-sheet_transaksi = spreadsheet.worksheet("Transaksi")
-sheet_komentar = spreadsheet.worksheet("Komentar")
+sheet_transaksi = spreadsheet.worksheet("transaksi")
+sheet_komentar = spreadsheet.worksheet("komentar")
 
 # Ubah ke DataFrame
 df_transaksi = pd.DataFrame(sheet_transaksi.get_all_records())
