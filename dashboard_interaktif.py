@@ -14,8 +14,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
 # 🔹 Buka Spreadsheet utama
-spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1ja-GDWf5vzlovHyu0N47hvbgn1s2mfFxtX7gEWNzOOw/edit?usp=sharing")
-
+spreadsheet = client.open("transaksi_komentar")
 
 # Ambil masing-masing worksheet
 sheet_transaksi = spreadsheet.worksheet("transaksi")
