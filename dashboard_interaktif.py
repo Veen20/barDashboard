@@ -108,11 +108,22 @@ with tab1:
     df_hari['Nama Profil'] = df_hari['Profil Hari'].map({
         0: "Hari Sangat Tenang", 1: "Hari Sangat Sibuk", 2: "Hari Normal"
     })
-    # Visualisasi hubungan profil vs hari
-    crosstab_hari.plot(kind='bar', figsize=(12, 6), title='Distribusi Profil Hari')
-    plt.ylabel('Frekuensi')
-    plt.grid(axis='y', linestyle='--')
-    plt.show()
+   
+    st.markdown("**Rata-Rata Jumlah Transaksi per Kategori Waktu untuk Tiap Profil Hari**")
+
+    df_rata = df_hari.groupby('Nama Profil')[labels].mean().reset_index()
+    df_rata_melt = df_rata.melt(id_vars='Nama Profil', var_name='Kategori Waktu', value_name='Rata-Rata Transaksi')
+
+    fig4, ax4 = plt.subplots(figsize=(8, 5))
+    sns.barplot(data=df_rata_melt, x='Kategori Waktu', y='Rata-Rata Transaksi', hue='Nama Profil', palette='Set2', ax=ax4)
+
+    ax4.set_title("Rata-Rata Transaksi per Kategori Waktu")
+    ax4.set_ylabel("Rata-Rata Transaksi Harian")
+    ax4.set_xlabel("Kategori Waktu")
+    ax4.legend(title='Profil Hari')
+
+    st.pyplot(fig4)
+
 
 with tab2:
     st.subheader("📝 Komentar Pengguna")
