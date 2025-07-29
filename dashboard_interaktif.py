@@ -191,13 +191,39 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-        sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack().fillna(0)
-        fig4, ax4 = plt.subplots()
-        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        # Urutan nama hari (pastikan kolom 'hari' di df_komentar sudah berisi nama hari dalam bahasa Indonesia)
+        hari_urut = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        
+        # Pastikan kolom hari dan sentimen bertipe kategorikal dengan urutan tetap
+        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urut, ordered=True)
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'],
+                                                          categories=['positif', 'netral', 'negatif'])
+        
+        # Hitung jumlah komentar per hari dan sentimen
+        sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
+        
+        # Tambahkan kolom sentimen yang mungkin tidak muncul
+        for kategori in ['positif', 'netral', 'negatif']:
+            if kategori not in sentimen_hari.columns:
+                sentimen_hari[kategori] = 0
+        
+        # Reindex hari agar urut dan semua hari muncul
+        sentimen_hari = sentimen_hari.reindex(hari_urut).fillna(0)
+        
+        # Plot stacked bar chart
+        fig4, ax4 = plt.subplots(figsize=(10, 5))
+        sentimen_hari[['positif', 'netral', 'negatif']].plot(
+            kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        
         ax4.set_ylabel("Jumlah Komentar")
         ax4.set_xlabel("Hari")
         ax4.set_title("Distribusi Sentimen per Hari")
+        ax4.legend(title="Sentimen")
+        plt.tight_layout()
+        
+        # Tampilkan di Streamlit
         st.pyplot(fig4)
+
 
 with tab3:
     st.subheader("📈 Ringkasan Gabungan")
