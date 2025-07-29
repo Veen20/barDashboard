@@ -191,30 +191,30 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-        # 1. Buat kolom 'hari' dari datetime jika belum ada
-        if 'hari' not in df_komentar.columns:
-            df_komentar['hari'] = df_komentar['datetime'].dt.strftime('%A')
-        
-        # 2. Mapping hari ke Bahasa Indonesia (jika perlu)
+        # Pastikan kolom hari dalam Bahasa Indonesia
         map_hari = {
             'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
             'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
         }
-        df_komentar['hari'] = df_komentar['hari'].map(map_hari)
-        
-        # 3. Urutan hari dan kategori sentimen
-       # Tentukan urutan hari dan kategori yang pasti
-        hari_urutan = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(map_hari)
+    
+        # Tentukan urutan hari dan kategori sentimen
+        hari_urutan = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
         kategori_urutan = ['Negatif', 'Netral', 'Positif']
-        
-        # Pastikan kolom 'hari' dan 'kategori_sentimen' adalah kategori dengan level tetap
+    
+        # Pastikan kolom bertipe kategori
         df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urutan, ordered=True)
         df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=kategori_urutan, ordered=True)
-        
-        # Hitung jumlah komentar tiap hari dan kategori sentimen
-        sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
-        
-        # Buat plot
+    
+        # Grouping dan isi yang hilang dengan 0
+        sentimen_hari = (
+            df_komentar.groupby(['hari', 'kategori_sentimen'])
+            .size()
+            .unstack(fill_value=0)
+            .reindex(index=hari_urutan, columns=kategori_urutan, fill_value=0)
+        )
+    
+        # Plot
         fig4, ax4 = plt.subplots(figsize=(10, 6))
         sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
         
@@ -223,8 +223,9 @@ with tab2:
         ax4.set_title("Distribusi Sentimen per Hari")
         ax4.set_xticklabels(hari_urutan, rotation=45)
         ax4.legend(title="Sentimen")
-        
+    
         st.pyplot(fig4)
+
 
 
 
