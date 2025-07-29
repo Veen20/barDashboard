@@ -71,10 +71,15 @@ with tab1:
 
     with col2:
         st.markdown("**Distribusi Jam Transaksi**")
-        fig2, ax2 = plt.subplots()
-        sns.histplot(df_trans['jam_only'], bins=24, kde=True, color='dodgerblue', ax=ax2)
-        ax2.set_xlabel("Jam Transaksi (0-23)")
-        st.pyplot(fig2)
+        plt.figure(figsize=(12, 6))
+        sns.histplot(df['jam_only'], bins=24, kde=True, color='dodgerblue')
+        plt.title('Distribusi Jam Transaksi')
+        plt.xlabel('Jam (0-23)')
+        plt.ylabel('Frekuensi')
+        plt.grid(axis='y', linestyle='--')
+        plt.xticks(range(24))
+        plt.show()fig2, ax2 = plt.subplots()
+    
 
     # Clustering Waktu
     bins = [-1, 5, 10, 15, 23]
