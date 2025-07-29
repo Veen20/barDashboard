@@ -71,7 +71,6 @@ with tab1:
 
     with col2:
         st.markdown("**Distribusi Jam Transaksi**")
-
         # Pastikan kolom 'jam_only' bertipe integer
         df_trans['jam_only'] = df_trans['jam_only'].astype(int)
     
@@ -191,40 +190,25 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-        # Pastikan kolom hari dalam Bahasa Indonesia
-        map_hari = {
-            'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
-            'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
-        }
-        df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(map_hari)
-    
-        # Tentukan urutan hari dan kategori sentimen
-        hari_urutan = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        kategori_urutan = ['Negatif', 'Netral', 'Positif']
-    
-        # Pastikan kolom bertipe kategori
-        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urutan, ordered=True)
-        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=kategori_urutan, ordered=True)
-    
-        # Grouping dan isi yang hilang dengan 0
-        sentimen_hari = (
-            df_komentar.groupby(['hari', 'kategori_sentimen'])
-            .size()
-            .unstack(fill_value=0)
-            .reindex(index=hari_urutan, columns=kategori_urutan, fill_value=0)
-        )
-    
-        # Plot
-        fig4, ax4 = plt.subplots(figsize=(10, 6))
-        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+       # Hitung jumlah sentimen per hari
+        sentimen_harian = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
         
-        ax4.set_ylabel("Jumlah Komentar")
-        ax4.set_xlabel("Hari")
-        ax4.set_title("Distribusi Sentimen per Hari")
-        ax4.set_xticklabels(hari_urutan, rotation=45)
-        ax4.legend(title="Sentimen")
-    
-        st.pyplot(fig4)
+        # Urutkan hari agar tidak acak
+        urutan_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        sentimen_harian = sentimen_harian.reindex(urutan_hari).fillna(0)
+        
+        # Ganti warna sesuai label
+        warna_dict = {'Positif': 'gray', 'Negatif': 'lightseagreen', 'Netral': 'khaki'}
+        
+        # Plot
+        sentimen_harian.plot(kind='bar', stacked=False, color=[warna_dict.get(col, 'black') for col in sentimen_harian.columns])
+        plt.title('Distribusi Sentimen per Hari')
+        plt.xlabel('Hari')
+        plt.ylabel('Jumlah Komentar')
+        plt.legend(title='Sentimen')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
 
 
 
