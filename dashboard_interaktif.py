@@ -76,7 +76,7 @@ with tab1:
         df_trans['jam_only'] = df_trans['jam_only'].astype(int)
     
         # Buat plot
-        fig2, ax2 = plt.subplots(figsize=(14, 4))
+        fig2, ax2 = plt.subplots(figsize=(14, 7))
         sns.histplot(
             df_trans['jam_only'],
             bins=24,
