@@ -16,8 +16,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 # ----------------------------
 # KONFIGURASI DASHBOARD
 # ----------------------------
-st.set_page_config(page_title="📊 Dashboard Transaksi & Sentimen eSIGNAL", layout="wide")
-st.title("📊 Dashboard Transaksi & Sentimen eSIGNAL")
+st.set_page_config(page_title="📊 Dashboard Analisis Transaksi & Sentimen Masyarakat Terhadap UPTB Samsat Palembang 1", layout="wide")
+st.title("📊  Dashboard Analisis Transaksi & Sentimen Masyarakat Terhadap UPTB Samsat Palembang 1")
 
 # ----------------------------
 # AUTENTIKASI GSPREAD
@@ -203,35 +203,29 @@ with tab2:
         df_komentar['hari'] = df_komentar['hari'].map(map_hari)
         
         # 3. Urutan hari dan kategori sentimen
-        hari_urut = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urut, ordered=True)
-        df_komentar['kategori_sentimen'] = pd.Categorical(
-            df_komentar['kategori_sentimen'], categories=['Positif', 'Netral', 'Negatif'])
+       # Tentukan urutan hari dan kategori yang pasti
+        hari_urutan = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        kategori_urutan = ['Negatif', 'Netral', 'Positif']
         
-        # 4. Grouping dan hitung
+        # Pastikan kolom 'hari' dan 'kategori_sentimen' adalah kategori dengan level tetap
+        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urutan, ordered=True)
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=kategori_urutan, ordered=True)
+        
+        # Hitung jumlah komentar tiap hari dan kategori sentimen
         sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
         
-        # 5. Pastikan kolom sentimen lengkap meskipun isinya nol
-        for kategori in ['Positif', 'Netral', 'Negatif']:
-            if kategori not in sentimen_hari.columns:
-                sentimen_hari[kategori] = 0
-        
-        # 6. Reorder hari
-        sentimen_hari = sentimen_hari.reindex(hari_urut)
-        
-        # 7. Plot
-        fig4, ax4 = plt.subplots(figsize=(10, 5))
-        sentimen_hari[['Positif', 'Netral', 'Negatif']].plot(
-            kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        # Buat plot
+        fig4, ax4 = plt.subplots(figsize=(10, 6))
+        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
         
         ax4.set_ylabel("Jumlah Komentar")
         ax4.set_xlabel("Hari")
         ax4.set_title("Distribusi Sentimen per Hari")
+        ax4.set_xticklabels(hari_urutan, rotation=45)
         ax4.legend(title="Sentimen")
-        plt.tight_layout()
         
-        # 8. Tampilkan ke Streamlit
         st.pyplot(fig4)
+
 
 
 with tab3:
