@@ -116,18 +116,13 @@ with tab_visual_komentar:
 # ===============================
 with tab_komentar:
     st.subheader("🗨️ Komentar Terbaru dari Pengguna")
-    if 'ulasan' in df_komentar.columns:
-        for i, komentar in enumerate(df_komentar['ulasan'].head(10), start=1):
-            st.write(f"**{i}.** {komentar}")
+            st.dataframe(df_komentar, use_container_width=True)
 
-
-# TAB 3: ULASAN
-# ===============================
-with tab_komentar:
-    st.subheader("🗨️ Contoh Komentar Pengguna")
-    if 'ulasan' in df_komentar.columns:
-        for i, komentar in enumerate(df_komentar['ulasan'].head(10), start=1):
-            st.write(f"**{i}.** {komentar}")
+        if 'ulasan' in df_komentar.columns:
+            st.markdown("### 🔍 Beberapa Komentar Terbaru")
+            for i, row in df_komentar.head(5).iterrows():
+                with st.expander(f"🗨️ Komentar {i+1}"):
+                    st.write(row['ulasan'])
             
 
 # ===============================
