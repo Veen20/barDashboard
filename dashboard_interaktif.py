@@ -115,7 +115,7 @@ with tab_visual_komentar:
 # TAB 4: KOMENTAR TERBARU
 # ===============================
 with tab_komentar:
-    st.subheader("🗨️ Komentar Terbaru dari Pengguna")
+        st.subheader("💬 Tabel Komentar Publik")
         st.dataframe(df_komentar, use_container_width=True)
 
         if 'ulasan' in df_komentar.columns:
@@ -123,7 +123,6 @@ with tab_komentar:
             for i, row in df_komentar.head(5).iterrows():
                 with st.expander(f"🗨️ Komentar {i+1}"):
                     st.write(row['ulasan'])
-                    
 # ===============================
 # CATATAN PENUTUP
 # ===============================
