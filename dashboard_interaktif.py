@@ -191,26 +191,35 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-        # Urutan nama hari (pastikan kolom 'hari' di df_komentar sudah berisi nama hari dalam bahasa Indonesia)
+        # 1. Buat kolom 'hari' dari datetime jika belum ada
+        if 'hari' not in df_komentar.columns:
+            df_komentar['hari'] = df_komentar['datetime'].dt.strftime('%A')
+        
+        # 2. Mapping hari ke Bahasa Indonesia (jika perlu)
+        map_hari = {
+            'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
+            'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
+        }
+        df_komentar['hari'] = df_komentar['hari'].map(map_hari)
+        
+        # 3. Urutan hari dan kategori sentimen
         hari_urut = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        
-        # Pastikan kolom hari dan sentimen bertipe kategorikal dengan urutan tetap
         df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=hari_urut, ordered=True)
-        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'],
-                                                          categories=['positif', 'netral', 'negatif'])
+        df_komentar['kategori_sentimen'] = pd.Categorical(
+            df_komentar['kategori_sentimen'], categories=['positif', 'netral', 'negatif'])
         
-        # Hitung jumlah komentar per hari dan sentimen
+        # 4. Grouping dan hitung
         sentimen_hari = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
         
-        # Tambahkan kolom sentimen yang mungkin tidak muncul
+        # 5. Pastikan kolom sentimen lengkap meskipun isinya nol
         for kategori in ['positif', 'netral', 'negatif']:
             if kategori not in sentimen_hari.columns:
                 sentimen_hari[kategori] = 0
         
-        # Reindex hari agar urut dan semua hari muncul
-        sentimen_hari = sentimen_hari.reindex(hari_urut).fillna(0)
+        # 6. Reorder hari
+        sentimen_hari = sentimen_hari.reindex(hari_urut)
         
-        # Plot stacked bar chart
+        # 7. Plot
         fig4, ax4 = plt.subplots(figsize=(10, 5))
         sentimen_hari[['positif', 'netral', 'negatif']].plot(
             kind='bar', stacked=True, colormap='Set2', ax=ax4)
@@ -221,7 +230,7 @@ with tab2:
         ax4.legend(title="Sentimen")
         plt.tight_layout()
         
-        # Tampilkan di Streamlit
+        # 8. Tampilkan ke Streamlit
         st.pyplot(fig4)
 
 
