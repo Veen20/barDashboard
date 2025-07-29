@@ -193,51 +193,49 @@ with tab2:
     with col4:                            
         st.markdown("**Distribusi Sentimen per Hari**")
         
-        # Pastikan tanggal sudah datetime dan bersih
+        # Ubah tanggal
         df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
         df_komentar = df_komentar.dropna(subset=['tanggal'])
     
-        # Nama hari dalam Bahasa Indonesia
+        # Mapping hari
         hari_mapping = {
             'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
             'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
         }
         df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
     
-        # Pastikan kategori_sentimen memiliki semua nilai lengkap dan dalam urutan yang diinginkan
-        kategori_sentimen_lengkap = ['Negatif', 'Netral', 'Positif']
-        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], 
-                                                          categories=kategori_sentimen_lengkap, 
-                                                          ordered=True)
-    
-        # Urutkan hari
+        # Kategori
+        kategori_sentimen = ['Negatif', 'Netral', 'Positif']
         semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=kategori_sentimen, ordered=True)
         df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
     
-        # Buat kombinasi lengkap hari × sentimen
-        index_kombinasi = pd.MultiIndex.from_product([semua_hari, kategori_sentimen_lengkap], 
-                                                     names=['hari', 'kategori_sentimen'])
-    
-        # Hitung jumlah komentar berdasarkan hari dan kategori_sentimen
-        distribusi_sentimen = (
-            df_komentar.groupby(['hari', 'kategori_sentimen'])
-            .size()
-            .reindex(index_kombinasi, fill_value=0)
-            .unstack()
+        # Buat pivot tabel lengkap
+        pivot_sentimen = (
+            df_komentar.pivot_table(index='hari', columns='kategori_sentimen', aggfunc='size', fill_value=0)
+            .reindex(semua_hari)
+            .fillna(0)
+            .astype(int)
         )
+    
+        # Pastikan semua kolom sentimen ada
+        for s in kategori_sentimen:
+            if s not in pivot_sentimen.columns:
+                pivot_sentimen[s] = 0
+        pivot_sentimen = pivot_sentimen[kategori_sentimen]  # urutkan kolom
     
         # Plot
         fig4, ax4 = plt.subplots(figsize=(10, 6))
-        distribusi_sentimen.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        pivot_sentimen.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
     
         ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
         ax4.set_xlabel("Hari")
         ax4.set_ylabel("Jumlah Komentar")
-        ax4.set_xticklabels(distribusi_sentimen.index, rotation=45)
+        ax4.set_xticklabels(pivot_sentimen.index, rotation=45)
         ax4.legend(title="Kategori Sentimen")
         ax4.grid(axis='y')
         st.pyplot(fig4)
-
+    
 
 
 with tab3:
