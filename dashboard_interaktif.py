@@ -120,6 +120,16 @@ with tab_komentar:
         for i, komentar in enumerate(df_komentar['ulasan'].head(10), start=1):
             st.write(f"**{i}.** {komentar}")
 
+
+# TAB 3: ULASAN
+# ===============================
+with tab3:
+    st.subheader("🗨️ Contoh Komentar Pengguna")
+    if 'ulasan' in df_komentar.columns:
+        for i, komentar in enumerate(df_komentar['ulasan'].head(10), start=1):
+            st.write(f"**{i}.** {komentar}")
+            
+
 # ===============================
 # CATATAN PENUTUP
 # ===============================
