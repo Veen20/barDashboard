@@ -4,7 +4,7 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
 
-st.set_page_config(page_title="Dashboard eSIGNAL", layout="wide")
+st.set_page_config(page_title="transaksi_komentar", layout="wide")
 st.title("📊 Dashboard Transaksi & Sentimen eSIGNAL")
 
 # Autentikasi Google Sheets
