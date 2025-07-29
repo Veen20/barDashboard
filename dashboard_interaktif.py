@@ -70,7 +70,7 @@ with tab1:
         st.pyplot(fig1)
 
     with col2:
-    st.markdown("**Distribusi Jam Transaksi**")
+        st.markdown("**Distribusi Jam Transaksi**")
 
         # Pastikan kolom 'jam_only' bertipe integer
         df_trans['jam_only'] = df_trans['jam_only'].astype(int)
