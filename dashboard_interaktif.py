@@ -116,7 +116,7 @@ with tab_visual_komentar:
 # ===============================
 with tab_komentar:
     st.subheader("🗨️ Komentar Terbaru dari Pengguna")
-            st.dataframe(df_komentar, use_container_width=True)
+        st.dataframe(df_komentar, use_container_width=True)
 
         if 'ulasan' in df_komentar.columns:
             st.markdown("### 🔍 Beberapa Komentar Terbaru")
