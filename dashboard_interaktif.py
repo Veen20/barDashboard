@@ -191,49 +191,48 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:                            
-        with col4:
-    st.markdown("**Distribusi Sentimen per Hari**")
-
-    # Pastikan tanggal valid
-    df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
-    df_komentar = df_komentar.dropna(subset=['tanggal'])
-
-    # Mapping nama hari
-    hari_mapping = {
-        'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
-        'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
-    }
-    df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
-
-    # Pastikan kolom kategori lengkap
-    semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-    semua_sentimen = ['Negatif', 'Netral', 'Positif']
-
-    df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
-    df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=semua_sentimen, ordered=True)
-
-    # Hitung jumlah komentar
-    counts = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
-
-    # Pastikan semua kolom sentimen ada
-    for s in semua_sentimen:
-        if s not in counts.columns:
-            counts[s] = 0
-
-    # Urutkan kembali kolom
-    counts = counts[semua_sentimen]
-
-    # Buat plot
-    fig4, ax4 = plt.subplots(figsize=(10, 6))
-    counts.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
-
-    ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
-    ax4.set_xlabel("Hari")
-    ax4.set_ylabel("Jumlah Komentar")
-    ax4.set_xticklabels(counts.index, rotation=45)
-    ax4.legend(title="Kategori Sentimen")
-    ax4.grid(axis='y')
-    st.pyplot(fig4)
+        st.markdown("**Distribusi Sentimen per Hari**")
+    
+        # Pastikan tanggal valid
+        df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
+        df_komentar = df_komentar.dropna(subset=['tanggal'])
+    
+        # Mapping nama hari
+        hari_mapping = {
+            'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
+            'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
+        }
+        df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
+    
+        # Pastikan kolom kategori lengkap
+        semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
+        semua_sentimen = ['Negatif', 'Netral', 'Positif']
+    
+        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=semua_sentimen, ordered=True)
+    
+        # Hitung jumlah komentar
+        counts = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
+    
+        # Pastikan semua kolom sentimen ada
+        for s in semua_sentimen:
+            if s not in counts.columns:
+                counts[s] = 0
+    
+        # Urutkan kembali kolom
+        counts = counts[semua_sentimen]
+    
+        # Buat plot
+        fig4, ax4 = plt.subplots(figsize=(10, 6))
+        counts.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+    
+        ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
+        ax4.set_xlabel("Hari")
+        ax4.set_ylabel("Jumlah Komentar")
+        ax4.set_xticklabels(counts.index, rotation=45)
+        ax4.legend(title="Kategori Sentimen")
+        ax4.grid(axis='y')
+        st.pyplot(fig4)
 
 
 
