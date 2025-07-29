@@ -110,19 +110,17 @@ with tab1:
     })
    
     st.markdown("**Rata-Rata Jumlah Transaksi per Kategori Waktu untuk Tiap Profil Hari**")
+    fig5, ax5 = plt.subplots(figsize=(10, 6))
+    df_profil_hari.plot(kind='bar', stacked=False, ax=ax5, colormap='Set2')
 
-    df_rata = df_hari.groupby('Nama Profil')[labels].mean().reset_index()
-    df_rata_melt = df_rata.melt(id_vars='Nama Profil', var_name='Kategori Waktu', value_name='Rata-Rata Transaksi')
+    ax5.set_title("Distribusi Profil Hari")
+    ax5.set_xlabel("Hari")
+    ax5.set_ylabel("Frekuensi")
+    ax5.legend(title="Nama Profil")
+    ax5.grid(axis='y', linestyle='--', alpha=0.7)
 
-    fig4, ax4 = plt.subplots(figsize=(8, 5))
-    sns.barplot(data=df_rata_melt, x='Kategori Waktu', y='Rata-Rata Transaksi', hue='Nama Profil', palette='Set2', ax=ax4)
-
-    ax4.set_title("Rata-Rata Transaksi per Kategori Waktu")
-    ax4.set_ylabel("Rata-Rata Transaksi Harian")
-    ax4.set_xlabel("Kategori Waktu")
-    ax4.legend(title='Profil Hari')
-
-    st.pyplot(fig4)
+    st.pyplot(fig5)
+    
 
 
 with tab2:
