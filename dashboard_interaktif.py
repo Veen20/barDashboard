@@ -221,16 +221,17 @@ with tab2:
         )
     
         # Plot
-        plt.figure(figsize=(10,6))
-        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2')
-        plt.title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
-        plt.xlabel("Hari")
-        plt.ylabel("Jumlah Komentar")
-        plt.xticks(rotation=45)
-        plt.legend(title="Kategori Sentimen")
-        plt.tight_layout()
-        plt.grid(axis='y')
-        plt.show()
+       # Plot menggunakan Streamlit
+        fig4, ax4 = plt.subplots(figsize=(10, 6))
+        distribusi_sentimen.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
+        ax4.set_xlabel("Hari")
+        ax4.set_ylabel("Jumlah Komentar")
+        ax4.set_xticklabels(distribusi_sentimen.index, rotation=45)
+        ax4.legend(title="Kategori Sentimen")
+        ax4.grid(axis='y')
+        st.pyplot(fig4)
+
 
 
 
