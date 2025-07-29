@@ -108,6 +108,11 @@ with tab1:
     df_hari['Nama Profil'] = df_hari['Profil Hari'].map({
         0: "Hari Sangat Tenang", 1: "Hari Sangat Sibuk", 2: "Hari Normal"
     })
+    # Visualisasi hubungan profil vs hari
+    crosstab_hari.plot(kind='bar', figsize=(12, 6), title='Distribusi Profil Hari')
+    plt.ylabel('Frekuensi')
+    plt.grid(axis='y', linestyle='--')
+    plt.show()
 
 with tab2:
     st.subheader("📝 Komentar Pengguna")
