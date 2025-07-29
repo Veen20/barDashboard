@@ -172,6 +172,11 @@ with tab2:
     df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
     df_komentar['hari'] = df_komentar['tanggal'].dt.day_name()
 
+    # Pastikan kolom datetime dan jam_only dibuat dengan benar
+    df_trans['datetime'] = pd.to_datetime(df_trans['TANGGAL'].astype(str) + ' ' + df_trans['JAM'].astype(str), errors='coerce')
+    df_trans.dropna(subset=['datetime'], inplace=True)
+    df_trans['jam_only'] = df_trans['datetime'].dt.hour
+
     # Tampilkan beberapa komentar terbaru
     st.markdown("### 🔍 Komentar Terbaru")
     for komentar in df_komentar['Komentar'].head(5):
