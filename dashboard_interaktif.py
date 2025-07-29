@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from oauth2client.service_account import ServiceAccountCredentials
 import json
-from io import BytesIO
 
 # ===============================
 # KONFIGURASI HALAMAN
@@ -15,7 +14,6 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-
 st.markdown("## 📊 Dashboard Transaksi & Sentimen eSIGNAL")
 
 # ===============================
@@ -41,14 +39,16 @@ except Exception as e:
     st.stop()
 
 # ===============================
-# TABS UNTUK NAVIGASI
+# TABS UTAMA
 # ===============================
-tab1, tab2, tab3 = st.tabs(["📑 Data Mentah", "📈 Visualisasi", "📬 Komentar Publik"])
+tab_data, tab_visual_transaksi, tab_visual_komentar, tab_komentar = st.tabs(
+    ["📑 Data Mentah", "📈 Visualisasi Transaksi", "💬 Visualisasi Komentar", "🗨️ Komentar Terbaru"]
+)
 
 # ===============================
-# TAB 1: TAMPILKAN DATA MENTAH
+# TAB 1: DATA MENTAH
 # ===============================
-with tab1:
+with tab_data:
     st.subheader("💳 Data Transaksi")
     st.dataframe(df_transaksi, use_container_width=True)
 
@@ -56,14 +56,14 @@ with tab1:
     st.dataframe(df_komentar, use_container_width=True)
 
 # ===============================
-# TAB 2: VISUALISASI
+# TAB 2: VISUALISASI TRANSAKSI
 # ===============================
-with tab2:
-    st.subheader("📊 Visualisasi Data")
+with tab_visual_transaksi:
+    st.subheader("📈 Visualisasi Data Transaksi")
 
     col1, col2 = st.columns(2)
 
-    # Distribusi Jam Transaksi
+    # Visualisasi Distribusi Jam Transaksi
     with col1:
         if 'jam_only' in df_transaksi.columns:
             fig1, ax1 = plt.subplots(figsize=(10, 5))
@@ -73,47 +73,57 @@ with tab2:
             ax1.set_ylabel("Frekuensi")
             st.pyplot(fig1)
 
-    # Distribusi Sentimen
+    # Visualisasi Clustering Hari (kalau ada)
     with col2:
-        if 'kategori_sentimen' in df_komentar.columns:
-            fig2, ax2 = plt.subplots(figsize=(5, 4))
-            df_komentar['kategori_sentimen'].value_counts().plot(kind='bar', color=['red', 'green', 'blue'], ax=ax2)
-            ax2.set_title("Distribusi Sentimen Pengguna SIGNAL")
-            ax2.set_xlabel("Kategori Sentimen")
-            ax2.set_ylabel("Jumlah Komentar")
+        if 'kategori_kmeans' in df_transaksi.columns and 'hari' in df_transaksi.columns:
+            fig2, ax2 = plt.subplots(figsize=(8, 5))
+            pd.crosstab(df_transaksi['hari'], df_transaksi['kategori_kmeans']).plot(kind='bar', ax=ax2)
+            ax2.set_title("Distribusi Profil Hari Berdasarkan Clustering")
+            ax2.set_xlabel("Hari")
+            ax2.set_ylabel("Frekuensi")
             st.pyplot(fig2)
 
+# ===============================
+# TAB 3: VISUALISASI KOMENTAR
+# ===============================
+with tab_visual_komentar:
+    st.subheader("💬 Visualisasi Data Komentar Publik")
+
+    col3, col4 = st.columns(2)
+
+    # Distribusi Sentimen
+    with col3:
+        if 'kategori_sentimen' in df_komentar.columns:
+            fig3, ax3 = plt.subplots(figsize=(6, 4))
+            df_komentar['kategori_sentimen'].value_counts().plot(kind='bar', color=['red', 'green', 'blue'], ax=ax3)
+            ax3.set_title("Distribusi Sentimen Pengguna SIGNAL")
+            ax3.set_xlabel("Kategori Sentimen")
+            ax3.set_ylabel("Jumlah Komentar")
+            st.pyplot(fig3)
+
     # Distribusi Sentimen per Hari
-    if 'hari' in df_komentar.columns and 'kategori_sentimen' in df_komentar.columns:
-        st.markdown("### 📆 Distribusi Sentimen per Hari")
-        fig3, ax3 = plt.subplots(figsize=(7, 5))
-        sns.histplot(data=df_komentar, x="hari", hue="kategori_sentimen", multiple="stack", ax=ax3)
-        ax3.set_ylabel("Jumlah Komentar")
-        st.pyplot(fig3)
-
-    # Visualisasi Clustering Hari (jika ada)
-    if 'kategori_kmeans' in df_transaksi.columns and 'hari' in df_transaksi.columns:
-        st.markdown("### 📌 Distribusi Profil Hari (Clustering)")
-        fig4, ax4 = plt.subplots(figsize=(8, 5))
-        pd.crosstab(df_transaksi['hari'], df_transaksi['kategori_kmeans']).plot(kind='bar', ax=ax4)
-        ax4.set_title("Distribusi Profil Hari")
-        ax4.set_xlabel("Hari")
-        ax4.set_ylabel("Frekuensi")
-        st.pyplot(fig4)
+    with col4:
+        if 'hari' in df_komentar.columns and 'kategori_sentimen' in df_komentar.columns:
+            fig4, ax4 = plt.subplots(figsize=(7, 5))
+            sns.histplot(data=df_komentar, x="hari", hue="kategori_sentimen", multiple="stack", ax=ax4)
+            ax4.set_title("Distribusi Sentimen per Hari")
+            ax4.set_xlabel("Hari")
+            ax4.set_ylabel("Jumlah Komentar")
+            st.pyplot(fig4)
 
 # ===============================
-# TAB 3: ULASAN
+# TAB 4: KOMENTAR TERBARU
 # ===============================
-with tab3:
-    st.subheader("🗨️ Contoh Komentar Pengguna")
+with tab_komentar:
+    st.subheader("🗨️ Komentar Terbaru dari Pengguna")
     if 'ulasan' in df_komentar.columns:
         for i, komentar in enumerate(df_komentar['ulasan'].head(10), start=1):
             st.write(f"**{i}.** {komentar}")
 
 # ===============================
-# CATATAN AKHIR
+# CATATAN PENUTUP
 # ===============================
 st.markdown("""
 ---
-📌 *Dashboard ini menampilkan informasi transaksi dan persepsi publik terhadap layanan pembayaran PKB melalui aplikasi SIGNAL. Data diperoleh dari Google Spreadsheet dan diperbarui secara langsung.*
+📌 *Dashboard ini menyajikan data transaksi dan persepsi publik terhadap layanan SIGNAL. Analisis dilakukan berdasarkan waktu transaksi, klaster hari, dan persepsi sentimen.*
 """)
