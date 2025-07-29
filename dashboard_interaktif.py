@@ -71,34 +71,14 @@ with tab1:
 
     with col2:
         st.markdown("**Distribusi Jam Transaksi**")
-        fig2, ax2 = plt.subplots()
-        sns.histplot(df_trans['jam_only'], bins=24, kde=True, color='dodgerblue', ax=ax2)
-        ax2.set_xlabel("Jam Transaksi (00-23)")
-        st.pyplot(fig2)
-    
-# Pastikan data jam_only adalah integer
-df_trans['jam_only'] = df_trans['jam_only'].astype(int)
-
-# Buat plot
-fig2, ax2 = plt.subplots()
-
-sns.histplot(
-    df_trans['jam_only'],
-    bins=24,
-    binrange=(0, 24),
-    kde=True,
-    color='dodgerblue',
-    ax=ax2
-)
-
-# Atur label sumbu X dari 00 sampai 23
-ax2.set_xticks(np.arange(0, 24, 1))
-ax2.set_xticklabels([f"{i:02d}" for i in range(24)])  # Format dua digit
-ax2.set_xlabel("Jam Transaksi (00-23)")
-
-# Tampilkan plot di Streamlit
-st.pyplot(fig2)
-
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.histplot(df_trans['jam_only'], bins=24, kde=True, color='dodgerblue', ax=ax)
+        ax.set_title("Histogram Jam Transaksi")
+        ax.set_xlabel("Jam (00–23)")
+        ax.set_ylabel("Jumlah Transaksi")
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        st.pyplot(fig)   
+        
     # Clustering Waktu
     bins = [-1, 5, 10, 15, 23]
     labels = ['Dini Hari', 'Pagi', 'Siang', 'Sore-Malam']
