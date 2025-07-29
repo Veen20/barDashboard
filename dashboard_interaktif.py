@@ -186,6 +186,29 @@ if 'tanggal' not in df_komentar.columns and 'Tanggal' in df_komentar.columns:
     df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
     df_komentar['hari'] = df_komentar['tanggal'].dt.day_name()
 
+st.markdown("## 🐞 DEBUG DATA")
+
+# Cek apakah hari sudah terbentuk dengan baik
+st.write("🔎 Cek 10 baris pertama:")
+st.dataframe(df_komentar[['Tanggal', 'tanggal', 'hari', 'kategori_sentimen']].head(10))
+
+# Cek nilai unik dari kolom hari
+st.write("📅 Hari unik yang terbaca:")
+st.write(df_komentar['hari'].value_counts(dropna=False))
+
+# Cek nilai unik kategori sentimen
+st.write("💬 Kategori Sentimen unik:")
+st.write(df_komentar['kategori_sentimen'].value_counts(dropna=False))
+
+# Gabungan Hari x Sentimen
+st.write("📊 Tabel Hari x Sentimen:")
+st.dataframe(df_komentar.groupby(['hari', 'kategori_sentimen']).size().reset_index(name='Jumlah'))
+
+# Cek jika ada NaN
+st.write("❗ Jumlah missing value per kolom:")
+st.write(df_komentar[['tanggal', 'hari', 'kategori_sentimen']].isnull().sum())
+
+
 # ====================
 # 📊 VISUALISASI SENTIMEN
 # ====================
