@@ -190,36 +190,36 @@ with tab2:
         ax3.set_title("Distribusi Sentimen")
         st.pyplot(fig3)
 
-    with col4:              
+    with col4:                            
         st.markdown("**Distribusi Sentimen per Hari**")
-    
+        
         # Pastikan tanggal sudah datetime dan bersih
         df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
-    
-        # Buang komentar tanpa tanggal valid
         df_komentar = df_komentar.dropna(subset=['tanggal'])
     
-        # Ubah nama hari ke bahasa Indonesia
+        # Nama hari dalam Bahasa Indonesia
         hari_mapping = {
             'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
             'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
         }
         df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
     
-        # Pastikan kolom kategori_sentimen sudah benar
-        semua_sentimen = ['Negatif', 'Netral', 'Positif']
-        df_komentar['kategori_sentimen'] = df_komentar['kategori_sentimen'].astype(str)
-        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=semua_sentimen, ordered=True)
+        # Pastikan kategori_sentimen memiliki semua nilai lengkap dan dalam urutan yang diinginkan
+        kategori_sentimen_lengkap = ['Negatif', 'Netral', 'Positif']
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], 
+                                                          categories=kategori_sentimen_lengkap, 
+                                                          ordered=True)
     
-        # Urutkan hari juga
+        # Urutkan hari
         semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
         df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
     
         # Buat kombinasi lengkap hari × sentimen
-        index_kombinasi = pd.MultiIndex.from_product([semua_hari, semua_sentimen], names=['hari', 'kategori_sentimen'])
+        index_kombinasi = pd.MultiIndex.from_product([semua_hari, kategori_sentimen_lengkap], 
+                                                     names=['hari', 'kategori_sentimen'])
     
-        # Group dan reindex untuk pastikan semua kombinasi muncul
-        sentimen_hari = (
+        # Hitung jumlah komentar berdasarkan hari dan kategori_sentimen
+        distribusi_sentimen = (
             df_komentar.groupby(['hari', 'kategori_sentimen'])
             .size()
             .reindex(index_kombinasi, fill_value=0)
@@ -228,11 +228,12 @@ with tab2:
     
         # Plot
         fig4, ax4 = plt.subplots(figsize=(10, 6))
-        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+        distribusi_sentimen.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
+    
         ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
         ax4.set_xlabel("Hari")
         ax4.set_ylabel("Jumlah Komentar")
-        ax4.set_xticklabels(sentimen_hari.index, rotation=45)
+        ax4.set_xticklabels(distribusi_sentimen.index, rotation=45)
         ax4.legend(title="Kategori Sentimen")
         ax4.grid(axis='y')
         st.pyplot(fig4)
