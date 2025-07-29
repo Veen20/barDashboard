@@ -178,6 +178,16 @@ with tab2:
     for komentar in df_komentar['Komentar'].head(5):
         st.write(f"🗨️ {komentar}")
 
+    st.markdown("### 🔍 Debug Info: Distribusi Asli")
+    st.write("Jumlah masing-masing kategori_sentimen:")
+    st.write(df_komentar['kategori_sentimen'].value_counts(dropna=False))
+    
+    st.write("Jumlah masing-masing hari:")
+    st.write(df_komentar['hari'].value_counts(dropna=False))
+    
+    st.write("Contoh data (5 baris teratas):")
+    st.dataframe(df_komentar[['Tanggal', 'Komentar', 'kategori_sentimen', 'hari']].head(10))
+
     # Visualisasi Sentimen
     st.markdown("### 📊 Visualisasi Sentimen")
     col3, col4 = st.columns(2)
