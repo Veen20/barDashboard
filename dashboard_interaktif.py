@@ -190,38 +190,48 @@ with tab2:
         st.pyplot(fig3)
 
     with col4:
-        # Ubah nama hari ke bahasa Indonesia jika belum
+        st.markdown("**Distribusi Sentimen per Hari**")
+    
+        # Mapping nama hari ke bahasa Indonesia
         hari_mapping = {
             'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
             'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
         }
-        df_komentar['hari'] = df_komentar['hari'].map(hari_mapping)
+        df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
     
-        # Buat index semua kombinasi hari x sentimen
+        # Tentukan urutan dan kategori
         semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        semua_sentimen = ['Positif', 'Netral', 'Negatif']
-        index_kombinasi = pd.MultiIndex.from_product([semua_hari, semua_sentimen], names=['hari', 'kategori_sentimen'])
+        semua_sentimen = ['Negatif', 'Netral', 'Positif']  # Urutkan seperti pada legenda gambar
     
-        # Hitung jumlah komentar per kombinasi hari x sentimen
-        sentimen_harian = (
+        # Pastikan kategori urut
+        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
+        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=semua_sentimen, ordered=True)
+    
+        # Buat semua kombinasi hari x sentimen, isi dengan 0 kalau kosong
+        kombinasi_index = pd.MultiIndex.from_product([semua_hari, semua_sentimen], names=['hari', 'kategori_sentimen'])
+        distribusi_sentimen = (
             df_komentar.groupby(['hari', 'kategori_sentimen'])
             .size()
-            .reindex(index_kombinasi, fill_value=0)
+            .reindex(kombinasi_index, fill_value=0)
             .unstack()
         )
     
-        # Buat bar chart
-        fig4, ax4 = plt.subplots()
-        colors = ['gray', 'khaki', 'lightseagreen']  # Sesuai urutan: Positif, Netral, Negatif
-        sentimen_harian.plot(kind='bar', stacked=True, color=colors, ax=ax4)
+        # Plot
+        fig4, ax4 = plt.subplots(figsize=(10, 6))
+        distribusi_sentimen.plot(
+            kind='bar',
+            stacked=True,
+            color=['lightseagreen', 'khaki', 'lightgray'],  # Negatif, Netral, Positif
+            ax=ax4
+        )
     
-        ax4.set_title("Distribusi Sentimen per Hari")
+        ax4.set_title("Distribusi Sentimen per Hari", fontsize=14)
         ax4.set_xlabel("Hari")
         ax4.set_ylabel("Jumlah Komentar")
-        ax4.legend(title="Sentimen")
+        ax4.legend(title="Kategori Sentimen")
         ax4.set_xticklabels(ax4.get_xticklabels(), rotation=45)
+        ax4.grid(axis='y', linestyle='--', alpha=0.5)
         st.pyplot(fig4)
-
 
 
 with tab3:
