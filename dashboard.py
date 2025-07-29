@@ -31,9 +31,9 @@ st.subheader("💳 Data Transaksi")
 st.dataframe(df_transaksi)
 
 # Contoh visualisasi transaksi (jika ada kolom waktu)
-if 'tanggal' in df_transaksi.columns:
-    df_transaksi['tanggal'] = pd.to_datetime(df_transaksi['tanggal'], errors='coerce')
-    st.line_chart(df_transaksi.set_index('tanggal').select_dtypes(include=['number']))
+if 'TANGGAL' in df_transaksi.columns:
+    df_transaksi['TANGGAL'] = pd.to_datetime(df_transaksi['TANGGAL'], errors='coerce')
+    st.line_chart(df_transaksi.set_index('TANGGAL').select_dtypes(include=['number']))
 
 # ==============================
 # TAMPILKAN DATA KOMENTAR
