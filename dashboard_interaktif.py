@@ -172,10 +172,6 @@ with tab2:
     df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
     df_komentar['hari'] = df_komentar['tanggal'].dt.day_name()
 
-    # Pastikan kolom datetime dan jam_only dibuat dengan benar
-    df_trans['datetime'] = pd.to_datetime(df_trans['TANGGAL'].astype(str) + ' ' + df_trans['JAM'].astype(str), errors='coerce')
-    df_trans.dropna(subset=['datetime'], inplace=True)
-    df_trans['jam_only'] = df_trans['datetime'].dt.hour
 
     # Tampilkan beberapa komentar terbaru
     st.markdown("### 🔍 Komentar Terbaru")
@@ -225,17 +221,16 @@ with tab2:
         )
     
         # Plot
-        fig4, ax4 = plt.subplots(figsize=(10, 6))
-        distribusi_sentimen.plot(kind='bar', stacked=True, color=['lightcoral', 'khaki', 'lightgreen'], ax=ax4)
-    
-        ax4.set_title("Distribusi Sentimen per Hari", fontsize=14)
-        ax4.set_xlabel("Hari")
-        ax4.set_ylabel("Jumlah Komentar")
-        ax4.legend(title="Kategori Sentimen")
-        ax4.set_xticklabels(ax4.get_xticklabels(), rotation=45)
-        ax4.grid(axis='y', linestyle='--', alpha=0.5)
-    
-        st.pyplot(fig4)
+        plt.figure(figsize=(10,6))
+        sentimen_hari.plot(kind='bar', stacked=True, colormap='Set2')
+        plt.title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
+        plt.xlabel("Hari")
+        plt.ylabel("Jumlah Komentar")
+        plt.xticks(rotation=45)
+        plt.legend(title="Kategori Sentimen")
+        plt.tight_layout()
+        plt.grid(axis='y')
+        plt.show()
 
 
 
