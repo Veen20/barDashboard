@@ -109,10 +109,10 @@ with tab1:
         0: "Hari Sangat Tenang", 1: "Hari Sangat Sibuk", 2: "Hari Normal"
     })
 
-    # Tambahkan kolom nama hari (Senin - Minggu)
-    df_hari['Hari'] = pd.to_datetime(df_hari.index).day_name(locale='id_ID')  # Atau gunakan strftime('%A') jika error
+   # Ambil nama hari dari index tanggal
+    df_hari['Hari'] = pd.to_datetime(df_hari.index).day_name()
     
-    # Mapping ke Bahasa Indonesia (kalau locale tidak berfungsi)
+    # Mapping ke Bahasa Indonesia
     hari_mapping = {
         'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
         'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
