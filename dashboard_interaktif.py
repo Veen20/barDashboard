@@ -3,58 +3,76 @@ import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import json
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Konfigurasi halaman
-st.set_page_config(page_title="Dashboard Transaksi & Sentimen eSIGNAL", layout="wide")
+# ------------------------------
+# 🔹 Konfigurasi Halaman
+# ------------------------------
+st.set_page_config(page_title="Dashboard Transaksi & Sentimen eSIGNAL", layout="wide", initial_sidebar_state="expanded")
 st.title("📊 Dashboard Transaksi & Sentimen eSIGNAL")
 
-# Autentikasi Google Sheets
-scope = [
-    "https://spreadsheets.google.com/feeds",
-    "https://www.googleapis.com/auth/drive"
-]
+# ------------------------------
+# 🔹 Autentikasi Google Sheets
+# ------------------------------
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 
 try:
     creds_dict = json.loads(st.secrets["GOOGLE_SHEET_CREDENTIALS"])
     creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
     client = gspread.authorize(creds)
 
-    # Gunakan open_by_url untuk akurasi
-    spreadsheet = client.open("transaksi_komentar") 
-
-    # Ambil worksheet
+    spreadsheet = client.open("transaksi_komentar")
     sheet_transaksi = spreadsheet.worksheet("transaksi")
     sheet_komentar = spreadsheet.worksheet("komentar")
 
-    # Konversi ke DataFrame
     df_transaksi = pd.DataFrame(sheet_transaksi.get_all_records())
     df_komentar = pd.DataFrame(sheet_komentar.get_all_records())
 
-    # ======================
-    # TAMPILKAN DATA TRANSAKSI
-    # ======================
-    st.subheader("💳 Data Transaksi")
-    st.dataframe(df_transaksi)
+    # ------------------------------
+    # 🔹 Tab Layout
+    # ------------------------------
+    tab1, tab2, tab3 = st.tabs(["📄 Data Transaksi", "💬 Komentar Publik", "📈 Visualisasi & Clustering"])
 
-    # Visualisasi jika ada kolom TANGGAL
-    if 'TANGGAL' in df_transaksi.columns:
-        df_transaksi['TANGGAL'] = pd.to_datetime(df_transaksi['TANGGAL'], errors='coerce')
-        st.line_chart(df_transaksi.set_index('TANGGAL').select_dtypes(include=['number']))
+    # ------------------------------
+    # 🔹 Tab 1: Data Transaksi
+    # ------------------------------
+    with tab1:
+        st.subheader("💳 Tabel Data Transaksi")
+        st.dataframe(df_transaksi, use_container_width=True)
 
-    # ======================
-    # TAMPILKAN DATA KOMENTAR
-    # ======================
-    st.subheader("💬 Data Komentar Publik")
-    st.dataframe(df_komentar)
+        if 'TANGGAL' in df_transaksi.columns:
+            df_transaksi['TANGGAL'] = pd.to_datetime(df_transaksi['TANGGAL'], errors='coerce')
+            st.markdown("### 📆 Visualisasi Tren Transaksi")
+            st.line_chart(df_transaksi.set_index('TANGGAL').select_dtypes(include=['number']))
 
-    # Tampilkan beberapa komentar
-    if 'ulasan' in df_komentar.columns:
-        st.markdown("#### Contoh Komentar:")
-        for komentar in df_komentar['ulasan'].head(5):
-            st.write(f"🗨️ {komentar}")
+    # ------------------------------
+    # 🔹 Tab 2: Komentar Publik
+    # ------------------------------
+    with tab2:
+        st.subheader("💬 Tabel Komentar Publik")
+        st.dataframe(df_komentar, use_container_width=True)
+
+        if 'ulasan' in df_komentar.columns:
+            st.markdown("### 🔍 Beberapa Komentar Terbaru")
+            for i, row in df_komentar.head(5).iterrows():
+                with st.expander(f"🗨️ Komentar {i+1}"):
+                    st.write(row['ulasan'])
+
+    # ------------------------------
+    # 🔹 Tab 3: Visualisasi Clustering
+    # ------------------------------
+    with tab3:
+        st.subheader("🔎 Visualisasi Clustering Transaksi")
+
+        if 'cluster_kmeans' in df_transaksi.columns and 'jam_only' in df_transaksi.columns:
+            fig, ax = plt.subplots(figsize=(10, 5))
+            sns.scatterplot(data=df_transaksi, x='jam_only', y='cluster_kmeans', hue='cluster_kmeans', palette='tab10', s=100, ax=ax)
+            ax.set_title("Distribusi Cluster Berdasarkan Jam Transaksi")
+            st.pyplot(fig)
+        else:
+            st.info("⚠️ Kolom 'cluster_kmeans' dan 'jam_only' belum tersedia di data transaksi.")
 
 except Exception as e:
     st.error("❌ Gagal membuka spreadsheet atau worksheet. Periksa nama dan aksesnya.")
     st.exception(e)
-
-
