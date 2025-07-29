@@ -2,8 +2,10 @@ streamlit
 pandas
 gspread
 oauth2client
-pandas
 matplotlib
 seaborn
 wordcloud
 openpyxl
+scikit-learn
+transformers
+torch
