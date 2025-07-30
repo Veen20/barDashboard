@@ -9,3 +9,5 @@ openpyxl
 scikit-learn
 transformers
 torch
+qrcode[pil]
+Pillow
