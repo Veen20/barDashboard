@@ -40,7 +40,7 @@ df_komentar = pd.DataFrame(sheet_komentar.get_all_records())
 # ----------------------------
 # TAB DASHBOARD
 # ----------------------------
-tab1, tab2, tab3 = st.tabs(["💳 Data Transaksi", "💬 Data Komentar", "📈 Visualisasi Gabungan"])
+tab1, tab2, tab3 = st.tabs(["💳 Data Transaksi", "💬 Data Komentar", "📈 Ringkasan Gabungan"])
 
 with tab1:
     st.subheader("📌 Tabel Transaksi")
