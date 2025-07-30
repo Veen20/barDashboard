@@ -241,3 +241,23 @@ with tab3:
     st.dataframe(df_trans['kategori_waktu'].value_counts())
     st.write("Distribusi sentimen:")
     st.dataframe(df_komentar['kategori_sentimen'].value_counts())
+
+import qrcode
+from io import BytesIO
+from PIL import Image
+
+# Masukkan URL publik dashboard kamu (dari Streamlit Cloud atau hosting lain)
+dashboard_url = "https://your-dashboard-name.streamlit.app"
+
+# Generate QR code dari URL dashboard
+qr = qrcode.QRCode(version=1, box_size=10, border=4)
+qr.add_data(dashboard_url)
+qr.make(fit=True)
+
+img = qr.make_image(fill="black", back_color="white")
+
+# Tampilkan di sidebar
+st.sidebar.markdown("### 📱 QR Code Dashboard")
+buffer = BytesIO()
+img.save(buffer, format="PNG")
+st.sidebar.image(buffer.getvalue(), caption="Scan untuk buka dashboard")
