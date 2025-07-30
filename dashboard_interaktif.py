@@ -247,7 +247,7 @@ from io import BytesIO
 from PIL import Image
 
 # Masukkan URL publik dashboard kamu (dari Streamlit Cloud atau hosting lain)
-dashboard_url = "https://your-dashboard-name.streamlit.app"
+dashboard_url = "https://bardashboard-5kh48w3kappcbfp2m39nvp2.streamlit.app/"
 
 # Generate QR code dari URL dashboard
 qr = qrcode.QRCode(version=1, box_size=10, border=4)
