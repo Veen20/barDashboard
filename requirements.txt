@@ -11,3 +11,8 @@ transformers
 torch
 qrcode[pil]
 Pillow
+streamlit
+pandas
+numpy
+plotly
+streamlit-option-menu
