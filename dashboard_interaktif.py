@@ -1,23 +1,21 @@
 # dashboard_interaktif.py
-# Premium Sentiment Dashboard — Real-time Google Sheets + IndoBERT
-# - Modern blue–purple theme, glass cards, blurred background image
-# - Read Google Sheets CSV (real-time), optional local file upload
-# - Preprocess (Bahasa Indonesia), inference IndoBERT (3 labels)
-# - Cache predictions by CSV bytes (avoid re-run if unchanged)
-# - Fast mode for demo (no model download)
+# Redesigned Premium Sentiment Dashboard (Glassmorphism, background blur, modern font)
+# Features:
+#  - Realtime Google Sheets (CSV export) OR local upload
+#  - Preprocessing Bahasa Indonesia (Sastrawi if available)
+#  - IndoBERT sentiment inference (3 classes) with caching by CSV snapshot
+#  - Fast mode (dummy labels) for quick demo
+#  - Beautiful UI: Poppins font, glass cards, blurred background image + overlay
+#  - Insight, representative examples, wordclouds, interactive Plotly charts, CSV download
 #
 # Usage:
-# 1) pip install -r requirements.txt
-# 2) streamlit run dashboard_interaktif.py
-# ================================================================
+#  pip install -r requirements.txt
+#  streamlit run dashboard_interaktif.py
+# ===================================================================
 
-import io
-import re
-import base64
-import hashlib
-from typing import List, Tuple
+import io, re, base64
 from datetime import date
-
+from typing import List, Tuple
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -25,96 +23,95 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 
-# Optional UI nicety
+# OPTIONAL niceties
 try:
     from streamlit_option_menu import option_menu
     HAS_OPTION_MENU = True
 except Exception:
     HAS_OPTION_MENU = False
 
-# Transformers & torch
+# transformers (IndoBERT)
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-# Optional statsmodels for trendline
+# optional statsmodels (trendline)
 try:
     import statsmodels.api  # noqa: F401
     HAS_STATSMODELS = True
 except Exception:
     HAS_STATSMODELS = False
 
-# ----------------- Configuration (Google Sheet ID you provided) -----------------
+# ------------------ CONFIG (Use your Google Sheet ID) ------------------
 GSHEET_ID = "1VL8FwJrAAZHqEDErlkhPtQ-a69O4JcRkOBmnYPKH2PY"
 GSHEET_CSV_URL = f"https://docs.google.com/spreadsheets/d/{GSHEET_ID}/export?format=csv"
 
-# ----------------- Page config -----------------
-st.set_page_config(page_title="Sentiment Dashboard — Premium",
-                   page_icon="🧠", layout="wide", initial_sidebar_state="expanded")
+# ------------------ PAGE SETUP ------------------
+st.set_page_config(page_title="Sentiment Dashboard — Premium", page_icon="🧠", layout="wide")
 
-# ----------------- Theme & CSS (glass, blur, typography) -----------------
-PRIMARY = "#5D3FD3"      # purple-blue
-ACCENT = "#7FB3D5"       # soft blue accent
-CARD_BG = "rgba(255,255,255,0.85)"
-TEXT = "#0b1220"
+# ------------------ THEME + CSS (Glassmorphism + Font) ------------------
+# Use Google Fonts (Poppins). If offline, fallback to system font.
+st.markdown(
+    """
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+    :root{
+      --primary:#5D3FD3;
+      --accent:#7FB3D5;
+      --card-bg: rgba(255,255,255,0.85);
+      --glass-border: rgba(255,255,255,0.12);
+      --text: #0b1220;
+    }
+    * { font-family: 'Poppins', system-ui, -apple-system, 'Segoe UI', Roboto, Arial !important; }
+    body { background: transparent !important; }
 
-st.markdown(f"""
-<style>
-:root {{
-  --primary: {PRIMARY};
-  --accent: {ACCENT};
-  --card-bg: {CARD_BG};
-  --text: {TEXT};
-}}
-/* typography */
-body, .css-1d391kg, .stApp, .css-1v3fvcr {{
-  font-family: Inter, Poppins, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  color: var(--text);
-}}
+    /* Background image container (z-index -2) */
+    .bg-image{ position: fixed; inset:0; z-index:-2; background-position:center; background-size:cover; filter: blur(10px) brightness(.45) saturate(.95); transform: scale(1.03); }
 
-/* hero */
-.header-hero {{
-  background: linear-gradient(90deg, rgba(93,63,211,0.06), rgba(127,179,213,0.03));
-  padding: 18px; border-radius: 12px; margin-bottom: 14px;
-  box-shadow: 0 8px 24px rgba(11,22,39,0.04);
-}}
-.header-hero h1 {{ color: var(--primary); margin: 0; font-weight:800; font-size:30px; }}
-.header-hero p {{ margin:6px 0 0; color: #475569; }}
+    /* overlay tint */
+    .overlay{ position: fixed; inset:0; z-index:-1; background: linear-gradient(135deg, rgba(93,63,211,0.32), rgba(58,27,72,0.18)); mix-blend-mode:multiply; }
 
-/* glass card */
-.card {{
-  background: var(--card-bg); border-radius: 12px; padding: 12px;
-  box-shadow: 0 12px 30px rgba(10,20,30,0.06);
-}}
-.metric-title {{ font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; }}
-.metric-value {{ font-size:22px; font-weight:800; color:var(--text); }}
+    /* page container */
+    .content { position: relative; z-index: 1; padding-top: 10px; }
 
-.stDownloadButton>button, .stButton>button {{
-  border-radius:10px !important; padding:9px 14px !important;
-  background: var(--primary) !important; color: #fff !important; border: none !important;
-}}
+    .hero {
+      background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.02));
+      border-radius: 14px; padding: 18px; margin-bottom: 18px; display:flex; align-items:center; gap:16px;
+      box-shadow: 0 8px 30px rgba(6,10,16,0.10);
+      backdrop-filter: blur(6px);
+    }
+    .hero h1{ margin:0; color:var(--primary); font-weight:800; font-size:28px; }
+    .hero p{ margin:0; color:#cbd5e1; font-size:14px; }
 
-/* background image element (blurred) */
-.bg-image {{
-  position: fixed; inset: 0; z-index: -2; background-position:center; background-size:cover;
-  filter: blur(8px) brightness(.52); transform: scale(1.02);
-}}
-.overlay-tint {{
-  position: fixed; inset: 0; z-index: -1;
-  background: linear-gradient(135deg, rgba(93,63,211,0.30), rgba(34,103,178,0.22));
-  mix-blend-mode: multiply;
-  pointer-events: none;
-}}
-.content-wrap {{ position: relative; z-index: 1; }}
-/* responsive */
-@media (max-width: 768px) {{
-  .header-hero h1 {{ font-size: 22px; }}
-  .metric-value {{ font-size: 18px; }}
-}}
-</style>
-""", unsafe_allow_html=True)
+    /* glass card */
+    .card {
+      background: var(--card-bg);
+      border-radius:12px; padding:14px;
+      box-shadow: 0 12px 30px rgba(6,10,16,0.08);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(6px);
+    }
+    .metric-title{ font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:.08em; }
+    .metric-value{ font-size:22px; font-weight:700; color:var(--text); }
 
-# ----------------- Helpers: text preprocessing (Indonesian) -----------------
-# try Sastrawi stopwords
+    .stDownloadButton>button, .stButton>button {
+      background: var(--primary) !important;
+      color: white !important;
+      border-radius: 10px !important;
+      padding: 8px 12px !important;
+    }
+
+    /* responsive tweaks */
+    @media (max-width: 768px){
+      .hero h1{ font-size:20px; }
+      .metric-value{ font-size:18px; }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+# ------------------ HELPERS: Text cleaning ------------------
+# Try to use Sastrawi stopwords (if available)
 try:
     from Sastrawi.StopWordRemover.StopWordRemoverFactory import StopWordRemoverFactory
     factory = StopWordRemoverFactory()
@@ -122,58 +119,53 @@ try:
 except Exception:
     STOPWORDS = set()
 
-def compress_repeats(s: str) -> str:
+def normalize_repeats(s: str) -> str:
     return re.sub(r'(.)\1{2,}', r'\1\1', s)
 
 def clean_text(text: str) -> str:
     t = str(text).lower()
     t = re.sub(r'https?://\S+|www\.\S+', ' ', t)
     t = re.sub(r'@[^\s]+|#[^\s]+', ' ', t)
-    t = t.encode('ascii', 'ignore').decode('ascii')   # strip emojis (keeps ascii)
+    t = t.encode('ascii', 'ignore').decode('ascii')  # strip emojis
     t = re.sub(r'[^a-z\s]', ' ', t)
-    t = compress_repeats(t)
-    if STOPWORDS:
-        tokens = [w for w in t.split() if w and w not in STOPWORDS]
-    else:
-        tokens = [w for w in t.split() if w]
-    return " ".join(tokens).strip()
+    t = normalize_repeats(t)
+    toks = [w for w in t.split() if w and w not in STOPWORDS]
+    return " ".join(toks).strip()
 
-# ----------------- Model loader (cached) -----------------
+# ------------------ MODEL loader (cached) ------------------
 @st.cache_resource(show_spinner=True)
-def load_indobert_model():
+def load_indobert():
     PRETRAIN = "mdhugol/indonesia-bert-sentiment-classification"
     tokenizer = AutoTokenizer.from_pretrained(PRETRAIN)
     model = AutoModelForSequenceClassification.from_pretrained(PRETRAIN)
-    label_map = {"LABEL_0": "positif", "LABEL_1": "netral", "LABEL_2": "negatif"}
-    return tokenizer, model, label_map
+    mapping = {"LABEL_0":"positif", "LABEL_1":"netral", "LABEL_2":"negatif"}
+    return tokenizer, model, mapping
 
-# ----------------- Prediction w/ caching by CSV bytes -----------------
+# ------------------ PREDICTION with cache by CSV bytes ------------------
 @st.cache_data(show_spinner=False)
-def predict_from_bytes(csv_bytes: bytes, fast_mode: bool, batch_size: int = 32) -> pd.DataFrame:
+def predict_cached(csv_bytes: bytes, fast_mode: bool, batch_size: int = 32) -> pd.DataFrame:
     bio = io.BytesIO(csv_bytes)
     df = pd.read_csv(bio)
-    # normalize column names (strip) and map common names case-insensitively
     df.columns = [c.strip() for c in df.columns]
+    # try map common column names case-insensitive
     col_map = {}
-    for expected in ["No","Tanggal","Komentar"]:
+    for exp in ["No","Tanggal","Komentar"]:
         for c in df.columns:
-            if c.strip().lower() == expected.lower():
-                col_map[c] = expected
+            if c.strip().lower() == exp.lower():
+                col_map[c] = exp
     if col_map:
         df = df.rename(columns=col_map)
-    # validate
     if not set(["No","Tanggal","Komentar"]).issubset(set(df.columns)):
         return pd.DataFrame({"error":["Missing required columns: No, Tanggal, Komentar"]})
     df = df.dropna(subset=["Komentar"]).reset_index(drop=True)
-    # preprocessing
     df["Komentar_Bersih"] = df["Komentar"].astype(str).apply(clean_text)
     if fast_mode:
-        rng = np.random.default_rng(2025)
+        rng = np.random.default_rng(12345)
         df["Sentimen"] = rng.choice(["positif","netral","negatif"], size=len(df))
         df["Kepercayaan"] = (rng.random(len(df))*0.4 + 0.6).round(4)
         return df
     # real inference
-    tokenizer, model, mapping = load_indobert_model()
+    tokenizer, model, mapping = load_indobert()
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model.to(device)
     model.eval()
@@ -194,71 +186,70 @@ def predict_from_bytes(csv_bytes: bytes, fast_mode: bool, batch_size: int = 32) 
     df["Kepercayaan"] = np.round(confs, 4)
     return df
 
-# ----------------- Sidebar: data & settings -----------------
+# ------------------ Sidebar: data source & settings ------------------
 with st.sidebar:
     st.title("📂 Sumber Data & Pengaturan")
-    st.write("Data diambil real-time dari Google Sheets (link yang kamu berikan).")
+    st.write("Data real-time dari Google Sheets atau upload file lokal.")
     mode = st.selectbox("Mode data", ["Google Sheets (real-time)", "Local file (CSV/XLSX)"])
     uploaded = None
     if mode == "Local file (CSV/XLSX)":
-        uploaded = st.file_uploader("Upload file lokal", type=["csv","xlsx"])
+        uploaded = st.file_uploader("Upload CSV / XLSX", type=["csv","xlsx"])
     st.markdown("---")
     st.subheader("⚙️ Analisis")
-    fast_mode = st.toggle("Fast mode (no model) — cepat demo", value=False)
-    sample_limit = st.slider("Batas baris yang diproses (demo)", 50, 2000, 1000, step=50)
+    fast_mode = st.toggle("Fast mode (no model) — demo cepat", value=False)
+    sample_limit = st.slider("Batas baris yang diproses (untuk demo)", 50, 2000, 1000, step=50)
     st.markdown("---")
-    st.subheader("🎨 Background & Tema")
-    bg_upload = st.file_uploader("Upload background image (jpg/png) — optional", type=["png","jpg","jpeg"])
-    overlay_opacity = st.slider("Overlay opacity", 0.0, 0.85, 0.45, 0.05)
+    st.subheader("🎨 Background & Theme")
+    bg_file = st.file_uploader("Upload background image (optional)", type=["png","jpg","jpeg"])
+    overlay_opacity = st.slider("Overlay opacity", 0.0, 0.85, 0.44, 0.02)
     st.markdown("---")
-    st.caption("Fast mode = preview cepat tanpa mengunduh model. Non-fast mode akan mengunduh model pada first run.")
+    st.caption("Fast mode: cepat tanpa mengunduh model. Non-fast: model akan diunduh sekali di first-run.")
 
-# ----------------- Fetch source bytes (sheet or uploaded) -----------------
-@st.cache_data(ttl=60)
-def fetch_csv_bytes_from_url(url: str) -> bytes:
+# ------------------ Load raw bytes from Google Sheet or upload ------------------
+@st.cache_data(ttl=45)
+def fetch_csv_bytes(url: str) -> bytes:
     df_temp = pd.read_csv(url)
-    bio = io.BytesIO()
-    df_temp.to_csv(bio, index=False)
+    bio = io.BytesIO(); df_temp.to_csv(bio, index=False)
     return bio.getvalue()
 
 raw_bytes = None
 if mode == "Google Sheets (real-time)":
     try:
-        raw_bytes = fetch_csv_bytes_from_url(GSHEET_CSV_URL)
+        raw_bytes = fetch_csv_bytes(GSHEET_CSV_URL)
     except Exception as e:
         st.sidebar.error("Gagal membaca Google Sheets: " + str(e))
         st.stop()
 else:
     if uploaded is None:
-        st.sidebar.info("Belum mengunggah file lokal.")
+        st.sidebar.info("Belum upload file lokal.")
         st.stop()
     else:
         if uploaded.name.lower().endswith(".xlsx"):
             df_local = pd.read_excel(uploaded)
-            bio = io.BytesIO(); df_local.to_csv(bio, index=False); raw_bytes = bio.getvalue()
+            b = io.BytesIO(); df_local.to_csv(b, index=False); raw_bytes = b.getvalue()
         else:
             raw_bytes = uploaded.read()
 
-# ----------------- Background: show uploaded image (blur + overlay) -----------------
-if bg_upload is not None:
-    raw_bg = bg_upload.read()
+# ------------------ background image display ------------------
+if bg_file is not None:
+    raw_bg = bg_file.read()
     b64 = base64.b64encode(raw_bg).decode()
-    st.markdown(f'<div class="bg-image" style="background-image: url(data:image/png;base64,{b64});"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="bg-image" style="background-image:url(data:image/png;base64,{b64});"></div>', unsafe_allow_html=True)
 else:
-    # default subtle gradient background
-    st.markdown(f'<div class="bg-image" style="background: linear-gradient(120deg, rgba(93,63,211,0.18), rgba(34,103,178,0.12));"></div>', unsafe_allow_html=True)
-# overlay tint to improve contrast
-st.markdown(f'<div class="overlay-tint" style="opacity:{overlay_opacity};"></div>', unsafe_allow_html=True)
+    # default subtle gradient if no image
+    st.markdown(f'<div class="bg-image" style="background: linear-gradient(120deg, rgba(93,63,211,0.18), rgba(58,27,72,0.10));"></div>', unsafe_allow_html=True)
+# overlay tint
+st.markdown(f'<div class="overlay" style="opacity:{overlay_opacity};"></div>', unsafe_allow_html=True)
 
-# ----------------- Predict (cache-aware) -----------------
-with st.spinner("🔄 menyiapkan data & inferensi (cache-aware)..."):
-    df_all = predict_from_bytes(raw_bytes, fast_mode=fast_mode, batch_size=32)
+# ------------------ Run prediction (cache-aware) ------------------
+with st.spinner("🔄 Menyiapkan data & menjalankan inferensi (cache-aware)..."):
+    df_all = predict_cached(raw_bytes, fast_mode=fast_mode, batch_size=32)
 
 if "error" in df_all.columns:
     st.error(df_all["error"].iat[0])
     st.stop()
 
-# normalize & parse
+# normalize & parse dates
 df_all.columns = [c.strip() for c in df_all.columns]
 if "Tanggal" in df_all.columns:
     df_all["Tanggal"] = pd.to_datetime(df_all["Tanggal"], errors="coerce").dt.date
@@ -267,11 +258,11 @@ df_all = df_all.dropna(subset=["Komentar"]).reset_index(drop=True)
 # apply sample limit
 df_proc = df_all.head(min(len(df_all), sample_limit)).copy()
 
-# ----------------- Header -----------------
-st.markdown('<div class="content-wrap">', unsafe_allow_html=True)
-st.markdown('<div class="header-hero"><h1>🧠 Sentiment Dashboard — Premium</h1><p>Realtime Google Sheets • IndoBERT • Modern UI • Background blur</p></div>', unsafe_allow_html=True)
+# ------------------ Page header ------------------
+st.markdown('<div class="content">', unsafe_allow_html=True)
+st.markdown('<div class="hero"><div style="width:46px;height:46px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;">AI</div><div><h1>Sentiment Dashboard — Premium</h1><p>Realtime Google Sheets • IndoBERT • Clean modern UI</p></div></div>', unsafe_allow_html=True)
 
-# ----------------- Filter panel -----------------
+# ------------------ Filters ------------------
 with st.expander("🔧 Filter Data (global)", expanded=True):
     col1, col2, col3 = st.columns([1,1,1])
     with col1:
@@ -282,10 +273,10 @@ with st.expander("🔧 Filter Data (global)", expanded=True):
         else:
             drange = None
     with col2:
-        keyword = st.text_input("Cari kata (komentar)", value="")
+        keyword = st.text_input("Cari kata kunci di komentar", value="")
     with col3:
         candidate_cols = [c for c in df_proc.columns if df_proc[c].dtype == object and c.lower() not in ("komentar","tanggal")]
-        cat_col = st.selectbox("Filter kolom kategori (opsional)", options=["(none)"] + candidate_cols)
+        cat_col = st.selectbox("Filter kolom kategori", options=["(none)"] + candidate_cols)
         cat_vals = None
         if cat_col and cat_col != "(none)":
             opts = sorted(df_proc[cat_col].dropna().unique().tolist())
@@ -306,83 +297,84 @@ if df_view.empty:
     st.warning("Tidak ada data setelah filter. Coba ubah filter.")
     st.stop()
 
-# ----------------- Metrics -----------------
+# ------------------ Metrics ------------------
 total = len(df_view)
-cnt_pos = int((df_view["Sentimen"] == "positif").sum())
-cnt_neu = int((df_view["Sentimen"] == "netral").sum())
-cnt_neg = int((df_view["Sentimen"] == "negatif").sum())
+pos = int((df_view["Sentimen"] == "positif").sum())
+neu = int((df_view["Sentimen"] == "netral").sum())
+neg = int((df_view["Sentimen"] == "negatif").sum())
 avg_conf = float(df_view["Kepercayaan"].mean()) if "Kepercayaan" in df_view.columns else np.nan
 
-m1,m2,m3,m4 = st.columns(4)
-with m1: st.markdown(f'<div class="card"><div class="metric-title">Total (terfilter)</div><div class="metric-value">{total:,}</div></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="card"><div class="metric-title">Positif</div><div class="metric-value">{cnt_pos:,}</div></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="card"><div class="metric-title">Netral</div><div class="metric-value">{cnt_neu:,}</div></div>', unsafe_allow_html=True)
-with m4: st.markdown(f'<div class="card"><div class="metric-title">Negatif</div><div class="metric-value">{cnt_neg:,}</div></div>', unsafe_allow_html=True)
+c1,c2,c3,c4 = st.columns(4)
+with c1: st.markdown(f'<div class="card"><div class="metric-title">Total (terfilter)</div><div class="metric-value">{total:,}</div></div>', unsafe_allow_html=True)
+with c2: st.markdown(f'<div class="card"><div class="metric-title">Positif</div><div class="metric-value">{pos:,}</div></div>', unsafe_allow_html=True)
+with c3: st.markdown(f'<div class="card"><div class="metric-title">Netral</div><div class="metric-value">{neu:,}</div></div>', unsafe_allow_html=True)
+with c4: st.markdown(f'<div class="card"><div class="metric-title">Negatif</div><div class="metric-value">{neg:,}</div></div>', unsafe_allow_html=True)
 
-st.markdown(f"**Insight singkat:** Dominan **{('Positif' if cnt_pos>=max(cnt_neu,cnt_neg) else ('Netral' if cnt_neu>=cnt_neg else 'Negatif'))}** • Rata-rata confidence: **{avg_conf*100:.1f}%**.")
+st.markdown(f"**Insight singkat:** Dominan **{('Positif' if pos>=max(neu,neg) else ('Netral' if neu>=neg else 'Negatif'))}** — rata-rata confidence: **{avg_conf*100:.1f}%**.")
 
-# representative comments
+# representative examples
 def sample_examples(dfm: pd.DataFrame, label: str, n: int = 3):
     sub = dfm[dfm["Sentimen"]==label]
     if sub.empty: return ["-"]
-    return sub["Komentar"].sample(n=min(len(sub), n), random_state=42).tolist()
+    return sub["Komentar"].sample(n=min(n,len(sub)), random_state=42).tolist()
 
 examples_pos = sample_examples(df_view, "positif", 3)
 examples_neu = sample_examples(df_view, "netral", 3)
 examples_neg = sample_examples(df_view, "negatif", 3)
 
-# ----------------- Navigation -----------------
+# ------------------ Navigation ------------------
 if HAS_OPTION_MENU:
     page = option_menu(None, ["Overview","Analisis","Visualisasi"], icons=["house","chat","bar-chart"], default_index=0, orientation="horizontal")
 else:
     page = st.radio("Halaman", ["Overview","Analisis","Visualisasi"], horizontal=True)
 
-# ----------------- Pages -----------------
+# ------------------ Pages ------------------
 def page_overview():
     st.subheader("Overview — Preview & Download")
     left, right = st.columns([2,1])
     with left:
-        cols_show = [c for c in ["No","Tanggal","Komentar","Komentar_Bersih","Sentimen","Kepercayaan"] if c in df_view.columns]
-        st.dataframe(df_view[cols_show].head(12), use_container_width=True, height=320)
+        show_cols = [c for c in ["No","Tanggal","Komentar","Komentar_Bersih","Sentimen","Kepercayaan"] if c in df_view.columns]
+        st.dataframe(df_view[show_cols].head(12), use_container_width=True, height=320)
     with right:
-        st.markdown("**Ringkasan**")
+        st.markdown("**Ringkasan Statistik**")
         stats = pd.DataFrame({
             "Panjang (kata)": df_view["Komentar_Bersih"].str.split().map(len),
             "Kepercayaan": df_view.get("Kepercayaan", pd.Series([np.nan]*len(df_view)))
         }).describe().T
         st.dataframe(stats, use_container_width=True, height=260)
-        st.markdown("**Contoh komentar**")
+        st.markdown("**Contoh Komentar**")
         st.markdown(f"- Positif: {examples_pos[0] if examples_pos else '-'}")
         st.markdown(f"- Netral: {examples_neu[0] if examples_neu else '-'}")
         st.markdown(f"- Negatif: {examples_neg[0] if examples_neg else '-'}")
-
+    # download
     buff = io.StringIO(); df_view.to_csv(buff, index=False)
     st.download_button("⬇️ Download CSV Hasil Analisis", data=buff.getvalue(), file_name="hasil_analisis_sentimen.csv", mime="text/csv")
 
 def page_analisis():
-    st.subheader("Analisis — Distribusi & Keywords")
-    dist = df_view["Sentimen"].value_counts().reset_index(); dist.columns = ["Sentimen","Jumlah"]
-    c1,c2 = st.columns([1,1])
-    with c1:
+    st.subheader("Analisis — Distribusi & Keyword")
+    dist = df_view["Sentimen"].value_counts().reset_index(); dist.columns=["Sentimen","Jumlah"]
+    colA, colB = st.columns([1,1])
+    with colA:
         fig = px.pie(dist, names="Sentimen", values="Jumlah", hole=0.36,
                      color_discrete_map={"positif":"#7AE582","netral":"#FFD97A","negatif":"#FF8A8A"})
         fig.update_traces(textinfo="percent+label")
         st.plotly_chart(fig, use_container_width=True)
-    with c2:
+    with colB:
         fig2 = px.bar(dist.sort_values("Jumlah", ascending=False), x="Sentimen", y="Jumlah", text_auto=True,
                       color="Sentimen", color_discrete_map={"positif":"#7AE582","netral":"#FFD97A","negatif":"#FF8A8A"})
         st.plotly_chart(fig2, use_container_width=True)
     st.markdown("---")
+    st.markdown("#### Top keywords per label")
     for label in ["positif","netral","negatif"]:
         text = " ".join(df_view.loc[df_view["Sentimen"]==label, "Komentar_Bersih"].astype(str))
         if not text.strip():
             st.info(f"No data for {label}")
             continue
         words = pd.Series(text.split()).value_counts().head(8)
-        st.markdown(f"**{label.capitalize()} top words:** " + ", ".join([f"{w} ({cnt})" for w,cnt in words.items()]))
+        st.markdown(f"**{label.capitalize()}**: " + ", ".join([f"{w} ({cnt})" for w,cnt in words.items()]))
     st.markdown("#### Wordclouds")
-    col1,col2,col3 = st.columns(3)
-    for label, col in zip(["positif","netral","negatif"], [col1,col2,col3]):
+    c1,c2,c3 = st.columns(3)
+    for label, col in zip(["positif","netral","negatif"], [c1,c2,c3]):
         text = " ".join(df_view.loc[df_view["Sentimen"]==label, "Komentar_Bersih"].astype(str))
         if not text.strip():
             col.info(label)
@@ -421,6 +413,6 @@ elif page == "Analisis":
 else:
     page_visual()
 
-st.markdown("</div>", unsafe_allow_html=True)  # close content wrap
+st.markdown("</div>", unsafe_allow_html=True)  # close content
 st.markdown("<hr/>", unsafe_allow_html=True)
-st.markdown("<div style='text-align:center; font-size:12px; opacity:.7;'>Created with ❤️ — Premium UI • IndoBERT • Real-time Google Sheets</div>", unsafe_allow_html=True)
+st.markdown("<div style='text-align:center; font-size:12px; opacity:.75;'>Created with ❤️ — Premium UI • IndoBERT • Real-time Google Sheets</div>", unsafe_allow_html=True)
