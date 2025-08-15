@@ -15,4 +15,10 @@ streamlit
 pandas
 numpy
 plotly
+wordcloud
+matplotlib
+transformers
+torch
+Sastrawi
 streamlit-option-menu
+
