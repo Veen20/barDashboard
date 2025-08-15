@@ -1,263 +1,161 @@
 import streamlit as st
 import pandas as pd
-import gspread
-import json
+import plotly.express as px
+from streamlit_option_menu import option_menu
+from wordcloud import WordCloud
 import matplotlib.pyplot as plt
-import seaborn as sns
-import re
-import numpy as np
-import torch
-from oauth2client.service_account import ServiceAccountCredentials
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
-
-# ----------------------------
-# KONFIGURASI DASHBOARD
-# ----------------------------
-st.set_page_config(page_title="📊 Dashboard Analisis Transaksi & Sentimen Masyarakat Terhadap UPTB Samsat Palembang 1", layout="wide")
-st.title("📊  Dashboard Analisis Transaksi & Sentimen Masyarakat Terhadap UPTB Samsat Palembang 1")
-
-# ----------------------------
-# AUTENTIKASI GSPREAD
-# ----------------------------
-scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_dict = json.loads(st.secrets["GOOGLE_SHEET_CREDENTIALS"])
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
-client = gspread.authorize(creds)
-
-# ----------------------------
-# AMBIL DATA DARI SPREADSHEET
-# ----------------------------
-spreadsheet = client.open_by_url("https://docs.google.com/spreadsheets/d/1NaV3vKTTRohc5DMdxM807S2sUkrNGobD0Tt0Bu9Uqx0/edit?usp=sharing")
-sheet_transaksi = spreadsheet.worksheet("transaksi")
-sheet_komentar = spreadsheet.worksheet("komentar")
-
-df_trans = pd.DataFrame(sheet_transaksi.get_all_records())
-df_komentar = pd.DataFrame(sheet_komentar.get_all_records())
-
-# ----------------------------
-# TAB DASHBOARD
-# ----------------------------
-tab1, tab2, tab3 = st.tabs(["💳 Data Transaksi", "💬 Data Komentar", "📈 Ringkasan Gabungan"])
-
-with tab1:
-    st.subheader("📌 Tabel Transaksi")
-    st.dataframe(df_trans)
-
-    # Preprocessing Tanggal & Jam
-    df_trans['TANGGAL'] = pd.to_datetime(df_trans['TANGGAL'])
-    df_trans['datetime'] = pd.to_datetime(df_trans['TANGGAL'].dt.date.astype(str) + ' ' + df_trans['JAM'].astype(str), errors='coerce')
-    df_trans.dropna(subset=['datetime'], inplace=True)
-    df_trans['jam_only'] = df_trans['datetime'].dt.hour
-    hari_mapping = {
-        'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
-        'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
-    }
-    df_trans['hari'] = df_trans['datetime'].dt.day_name().map(hari_mapping)
-
-    # Visualisasi
-    st.markdown("### 📊 Visualisasi")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("**Total Transaksi per Hari**")
-        fig1, ax1 = plt.subplots()
-        sns.countplot(x='hari', data=df_trans, order=['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'], ax=ax1)
-        ax1.set_ylabel("Jumlah Transaksi")
-        ax1.set_xlabel("Hari")
-        st.pyplot(fig1)
-
-    with col2:
-        st.markdown("**Distribusi Jam Transaksi**")
-        # Pastikan kolom 'jam_only' bertipe integer
-        df_trans['jam_only'] = df_trans['jam_only'].astype(int)
-    
-        # Buat plot
-        fig2, ax2 = plt.subplots(figsize=(14, 11))
-        sns.histplot(
-            df_trans['jam_only'],
-            bins=24,
-            binrange=(0, 24),
-            kde=True,
-            color='dodgerblue',
-            ax=ax2)
-    
-        # Atur label sumbu X dari 00 sampai 23
-        ax2.set_xticks(np.arange(0, 24, 1))
-        ax2.set_xticklabels([f"{i:02d}" for i in range(24)])
-        ax2.set_xlabel("Jam Transaksi (00-23)")
-    
-        # Tampilkan plot di Streamlit
-        st.pyplot(fig2)
-      
-        
-    # Clustering Waktu
-    bins = [-1, 5, 10, 15, 23]
-    labels = ['Dini Hari', 'Pagi', 'Siang', 'Sore-Malam']
-    df_trans['kategori_waktu'] = pd.cut(df_trans['jam_only'], bins=bins, labels=labels)
-
-    df_hari = pd.crosstab(df_trans['datetime'].dt.date, df_trans['kategori_waktu'])
-    df_hari['Total Harian'] = df_hari.sum(axis=1)
-    scaler = StandardScaler()
-    X_hari = scaler.fit_transform(df_hari)
-    kmeans_hari = KMeans(n_clusters=3, random_state=42, n_init=10)
-    df_hari['Profil Hari'] = kmeans_hari.fit_predict(X_hari)
-    df_hari['Nama Profil'] = df_hari['Profil Hari'].map({
-        0: "Hari Sangat Tenang", 1: "Hari Sangat Sibuk", 2: "Hari Normal"
-    })
-
-   # Ambil nama hari dari index tanggal
-    df_hari['Hari'] = pd.to_datetime(df_hari.index).day_name()
-    
-    # Mapping ke Bahasa Indonesia
-    hari_mapping = {
-        'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
-        'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
-    }
-    df_hari['Hari'] = df_hari['Hari'].map(hari_mapping)
-    
-    # Urutkan nama hari
-    urutan_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-    df_hari['Hari'] = pd.Categorical(df_hari['Hari'], categories=urutan_hari, ordered=True)
-    
-    # Crosstab distribusi jumlah profil per nama hari
-    df_profil_hari = pd.crosstab(df_hari['Hari'], df_hari['Nama Profil'])
-
-       
-    st.markdown("**Rata-Rata Jumlah Transaksi per Kategori Waktu untuk Tiap Profil Hari**")
-    fig5, ax5 = plt.subplots(figsize=(10, 6))
-    df_profil_hari.plot(kind='bar', stacked=False, ax=ax5, colormap='Set2')
-
-    ax5.set_title("Distribusi Profil Hari")
-    ax5.set_xlabel("Hari")
-    ax5.set_ylabel("Frekuensi")
-    ax5.legend(title="Nama Profil")
-    ax5.grid(axis='y', linestyle='--', alpha=0.7)
-
-    st.pyplot(fig5)
-    
-with tab2:
-    st.subheader("📝 Komentar Pengguna")
-    st.dataframe(df_komentar)
-
-    # Preprocessing + Sentiment Analysis
-    df_komentar['komentar_bersih'] = df_komentar['Komentar'].astype(str).apply(lambda x: re.sub(r'[^\w\s]', '', x.lower()))
-
-    def sentimen_manual(text):
-        positif = ['mantap', 'oke', 'bagus', 'cepat', 'praktis', 'baik', 'mantabb', 'terima kasih', 'top']
-        negatif = ['gagal', 'error', 'tidak bisa', 'jelek', 'lama', 'rusak', 'tidak dapat', 'buruk', 'tidak muncul']
-        if any(p in text for p in positif): return 2
-        elif any(n in text for n in negatif): return 0
-        return None
-
-    tokenizer = AutoTokenizer.from_pretrained("indobenchmark/indobert-base-p1")
-    model = AutoModelForSequenceClassification.from_pretrained("mdhugol/indonesia-bert-sentiment-classification")
-
-    def predict_sentiment(text):
-        rule = sentimen_manual(text)
-        if rule is not None:
-            return rule
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            logits = model(**inputs).logits
-        probs = torch.nn.functional.softmax(logits, dim=1)
-        return torch.argmax(probs).item()
-
-    df_komentar['label_sentimen'] = df_komentar['komentar_bersih'].apply(predict_sentiment)
-    df_komentar['kategori_sentimen'] = df_komentar['label_sentimen'].map({0: 'Negatif', 1: 'Netral', 2: 'Positif'})
-    df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
-    df_komentar['hari'] = df_komentar['tanggal'].dt.day_name()
-
-
-    # Tampilkan beberapa komentar terbaru
-    st.markdown("### 🔍 Komentar Terbaru")
-    for komentar in df_komentar['Komentar'].head(5):
-        st.write(f"🗨️ {komentar}")
-
-    # Visualisasi Sentimen
-    st.markdown("### 📊 Visualisasi Sentimen")
-    col3, col4 = st.columns(2)
-
-    with col3:
-        fig3, ax3 = plt.subplots()
-        df_komentar['kategori_sentimen'].value_counts().plot(kind='bar', color=['red', 'gray', 'green'], ax=ax3)
-        ax3.set_ylabel("Jumlah Komentar")
-        ax3.set_xlabel("Kategori Sentimen")
-        ax3.set_title("Distribusi Sentimen")
-        st.pyplot(fig3)
-
-    with col4:                           
-        st.markdown("**Distribusi Sentimen per Hari**")
-    
-        # Pastikan tanggal valid
-        df_komentar['tanggal'] = pd.to_datetime(df_komentar['Tanggal'], errors='coerce')
-        df_komentar = df_komentar.dropna(subset=['tanggal'])
-    
-        # Mapping nama hari
-        hari_mapping = {
-            'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
-            'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
-        }
-        df_komentar['hari'] = df_komentar['tanggal'].dt.day_name().map(hari_mapping)
-    
-        # Pastikan kolom kategori lengkap
-        semua_hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu']
-        semua_sentimen = ['Negatif', 'Netral', 'Positif']
-    
-        df_komentar['hari'] = pd.Categorical(df_komentar['hari'], categories=semua_hari, ordered=True)
-        df_komentar['kategori_sentimen'] = pd.Categorical(df_komentar['kategori_sentimen'], categories=semua_sentimen, ordered=True)
-    
-        # Hitung jumlah komentar
-        counts = df_komentar.groupby(['hari', 'kategori_sentimen']).size().unstack(fill_value=0)
-    
-        # Pastikan semua kolom sentimen ada
-        for s in semua_sentimen:
-            if s not in counts.columns:
-                counts[s] = 0
-    
-        # Urutkan kembali kolom
-        counts = counts[semua_sentimen]
-    
-        # Buat plot
-        fig4, ax4 = plt.subplots(figsize=(10, 6))
-        counts.plot(kind='bar', stacked=True, colormap='Set2', ax=ax4)
-    
-        ax4.set_title("Distribusi Sentimen per Hari", fontsize=14, weight='bold')
-        ax4.set_xlabel("Hari")
-        ax4.set_ylabel("Jumlah Komentar")
-        ax4.set_xticklabels(counts.index, rotation=45)
-        ax4.legend(title="Kategori Sentimen")
-        ax4.grid(axis='y')
-        st.pyplot(fig4)
-
-
-with tab3:
-    st.subheader("📈 Ringkasan Gabungan")
-    st.write("Jumlah total transaksi:", len(df_trans))
-    st.write("Jumlah komentar:", len(df_komentar))
-    st.write("Distribusi kategori waktu transaksi:")
-    st.dataframe(df_trans['kategori_waktu'].value_counts())
-    st.write("Distribusi sentimen:")
-    st.dataframe(df_komentar['kategori_sentimen'].value_counts())
-
-import qrcode
 from io import BytesIO
-from PIL import Image
 
-# Masukkan URL publik dashboard kamu (dari Streamlit Cloud atau hosting lain)
-dashboard_url = "https://bardashboard-5kh48w3kappcbfp2m39nvp2.streamlit.app/"
+# =========================
+# Konfigurasi Halaman
+# =========================
+st.set_page_config(page_title="Dashboard Analisis Sentimen", layout="wide")
 
-# Generate QR code dari URL dashboard
-qr = qrcode.QRCode(version=1, box_size=10, border=4)
-qr.add_data(dashboard_url)
-qr.make(fit=True)
+# =========================
+# CSS Custom
+# =========================
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f9f9f9;
+    }
+    h1, h2, h3 {
+        color: #2E86C1;
+    }
+    .metric-card {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-img = qr.make_image(fill="black", back_color="white")
+# =========================
+# Sidebar Navigasi
+# =========================
+with st.sidebar:
+    selected = option_menu(
+        "Navigasi",
+        ["📊 Overview", "📈 Analisis Sentimen", "📉 Visualisasi"],
+        icons=["house", "chat-left-text", "bar-chart"],
+        menu_icon="cast",
+        default_index=0,
+    )
 
-# Tampilkan di sidebar
-st.sidebar.markdown("### 📱 QR Code Dashboard")
-buffer = BytesIO()
-img.save(buffer, format="PNG")
-st.sidebar.image(buffer.getvalue(), caption="Scan untuk buka dashboard")
+# =========================
+# Dataset Contoh
+# =========================
+@st.cache_data
+def load_sample_data():
+    data = {
+        "tanggal": pd.date_range(start="2025-01-01", periods=12, freq="D"),
+        "komentar": [
+            "Pelayanan sangat cepat", "Website sering error", "Cukup memuaskan",
+            "Lambat dalam memproses", "Sangat membantu", "Biasa saja",
+            "Petugas ramah", "Sulit diakses", "Pengalaman menyenangkan",
+            "Aplikasi sering crash", "Cepat dan praktis", "Kurang memuaskan"
+        ],
+        "sentimen": [
+            "positif", "negatif", "netral", "negatif", "positif", "netral",
+            "positif", "negatif", "positif", "negatif", "positif", "negatif"
+        ]
+    }
+    return pd.DataFrame(data)
+
+# =========================
+# Upload atau Load Data
+# =========================
+st.sidebar.subheader("Upload Dataset")
+uploaded_file = st.sidebar.file_uploader("Upload CSV", type=["csv"])
+if uploaded_file:
+    df = pd.read_csv(uploaded_file)
+else:
+    st.sidebar.info("Menggunakan dataset contoh.")
+    df = load_sample_data()
+
+# Pastikan kolom sesuai
+if not all(col in df.columns for col in ["tanggal", "komentar", "sentimen"]):
+    st.error("Dataset harus memiliki kolom: tanggal, komentar, sentimen")
+    st.stop()
+
+df["tanggal"] = pd.to_datetime(df["tanggal"])
+
+# =========================
+# Halaman Overview
+# =========================
+if selected == "📊 Overview":
+    st.markdown("<h1>📊 Dashboard Analisis Sentimen</h1>", unsafe_allow_html=True)
+    st.write("Dashboard ini menampilkan ringkasan sentimen dari komentar masyarakat.")
+
+    total = len(df)
+    positif = (df["sentimen"] == "positif").sum()
+    netral = (df["sentimen"] == "netral").sum()
+    negatif = (df["sentimen"] == "negatif").sum()
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Komentar", total)
+    col2.metric("Positif", positif)
+    col3.metric("Netral", netral)
+    col4.metric("Negatif", negatif)
+
+    with st.expander("📄 Lihat Data Awal"):
+        st.dataframe(df.head())
+
+# =========================
+# Halaman Analisis Sentimen
+# =========================
+elif selected == "📈 Analisis Sentimen":
+    st.header("📈 Analisis Sentimen")
+
+    # Filter tanggal
+    date_min = df["tanggal"].min()
+    date_max = df["tanggal"].max()
+    start_date, end_date = st.date_input("Pilih Rentang Tanggal", [date_min, date_max])
+    df_filtered = df[(df["tanggal"] >= pd.to_datetime(start_date)) & (df["tanggal"] <= pd.to_datetime(end_date))]
+
+    # Distribusi sentimen
+    sent_count = df_filtered["sentimen"].value_counts().reset_index()
+    sent_count.columns = ["sentimen", "jumlah"]
+
+    fig_pie = px.pie(sent_count, names="sentimen", values="jumlah", title="Distribusi Sentimen", color="sentimen",
+                     color_discrete_map={"positif": "#2ECC71", "netral": "#F4D03F", "negatif": "#E74C3C"})
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+    # Wordcloud
+    st.subheader("Word Cloud per Sentimen")
+    col1, col2, col3 = st.columns(3)
+    for senti, col in zip(["positif", "netral", "negatif"], [col1, col2, col3]):
+        text = " ".join(df_filtered[df_filtered["sentimen"] == senti]["komentar"])
+        if text:
+            wc = WordCloud(width=300, height=300, background_color="white", colormap="viridis").generate(text)
+            col.image(wc.to_array(), caption=f"Word Cloud {senti}")
+        else:
+            col.write(f"Tidak ada komentar {senti}.")
+
+# =========================
+# Halaman Visualisasi
+# =========================
+elif selected == "📉 Visualisasi":
+    st.header("📉 Visualisasi Trend Sentimen")
+
+    # Trend sentimen per tanggal
+    trend = df.groupby(["tanggal", "sentimen"]).size().reset_index(name="jumlah")
+    fig_line = px.line(trend, x="tanggal", y="jumlah", color="sentimen", title="Trend Sentimen Harian",
+                       color_discrete_map={"positif": "#2ECC71", "netral": "#F4D03F", "negatif": "#E74C3C"})
+    st.plotly_chart(fig_line, use_container_width=True)
+
+    st.subheader("📄 Tabel Komentar")
+    st.dataframe(df)
+
+    # Download tombol
+    buffer = BytesIO()
+    df.to_csv(buffer, index=False)
+    st.download_button(
+        label="💾 Download CSV",
+        data=buffer.getvalue(),
+        file_name="sentimen_filtered.csv",
+        mime="text/csv"
+    )
+
