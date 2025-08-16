@@ -10,13 +10,13 @@ def load_css_with_bg(css_file, image_file):
 
     # Baca file CSS dan ganti placeholder BACKGROUND_IMAGE
     with open(css_file) as f:
-        css = f.read().replace("BACKGROUND_IMAGE", image_url)
+        css = f.read().replace("assets/samsat.jpg", image_url)
 
     # Inject CSS ke Streamlit
     st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
 # ==== Load CSS + Background ====
-load_css_with_bg("style.css", "samsat.jpg")
+load_css_with_bg("style.css", "assets/samsat.jpg")
 
 # ==== Contoh konten dashboard ====
 st.title("📊 Dashboard Analisis Samsat")
