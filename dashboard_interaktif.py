@@ -25,6 +25,31 @@ import plotly.express as px
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud
 
+import streamlit as st
+
+# CSS untuk menambahkan background image
+page_bg_img = """
+<style>
+[data-testid="stAppViewContainer"] {
+    background-image: url("samsat.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+[data-testid="stHeader"] {
+    background: rgba(0,0,0,0);  /* header transparan */
+}
+[data-testid="stSidebar"] {
+    background-color: rgba(15, 20, 35, 0.95); /* sidebar semi-transparan */
+}
+</style>
+"""
+
+st.markdown(page_bg_img, unsafe_allow_html=True)
+
+st.title("📊 Dashboard Modern dengan Background")
+st.write("Tampilan dengan tema biru keunguan + background image.")
+
 # Optional: nicer sidebar menu
 try:
     from streamlit_option_menu import option_menu
