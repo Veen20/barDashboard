@@ -1,15 +1,38 @@
-/* Background image */
+/* Background utama dengan gambar + gradient overlay */
 .stApp {
-    background-image: url("assets/samsat.jpg");
+    background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)),
+                url("assets/samsat.jpg");
     background-size: cover;
-    background-attachment: fixed;
     background-position: center;
+    background-attachment: fixed;
+    color: white;
+    font-family: "Segoe UI", sans-serif;
 }
 
-/* Card-like effect for widgets */
-.block-container {
-    background: rgba(15, 20, 40, 0.8);
-    padding: 2rem;
-    border-radius: 20px;
-    box-shadow: 0px 4px 20px rgba(0,0,0,0.5);
+/* Sidebar semi-transparent dengan blur */
+.stSidebar {
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+/* Judul dan header */
+h1, h2, h3, h4 {
+    color: #ffffff;
+}
+
+/* Tombol dengan hover efek */
+.stButton button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: 0.3s;
+}
+.stButton button:hover {
+    background-color: #45a049;
 }
