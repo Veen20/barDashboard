@@ -47,7 +47,7 @@ st.set_page_config(
 # -----------------------------
 # Load CSS (style.css di root)
 # Load file CSS
-with open("streamlit/style.css") as f:
+with open(".streamlit/style.css") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # -----------------------------
