@@ -1,7 +1,7 @@
 /* === Background dengan Overlay === */
 .stApp {
     background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)),
-                url("samsat.jpg") no-repeat center center fixed;
+                url("assets/samsat.jpg") no-repeat center center fixed;
     background-size: cover;
     font-family: 'Poppins', sans-serif;
     color: #f8f9fa; /* default text */
