@@ -1,9 +1,9 @@
 import streamlit as st
 import base64
 
-def load_css_with_bg(css_file, image_file):
+def load_css_with_bg("style.css", "assets/samsat.jpg"):
     # Baca gambar → base64
-    with open(image_file, "rb") as f:
+    with open("style.css", "assets/samsat.jpg") as f:
         data = f.read()
     encoded = base64.b64encode(data).decode()
     image_url = f"data:image/png;base64,{encoded}"
