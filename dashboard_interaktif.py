@@ -46,15 +46,9 @@ st.set_page_config(
 
 # -----------------------------
 # Load CSS (style.css di root)
-# -----------------------------
-def load_css(file_path=".streamlit/style.css"):
-    if os.path.exists(file_path):
-        with open(file_path) as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    else:
-        st.warning(f"⚠️ style.css tidak ditemukan di: {file_path}")
-
-load_css()
+# Load file CSS
+with open("streamlit/style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
 # -----------------------------
 # Konstanta & Palet
