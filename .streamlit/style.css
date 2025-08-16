@@ -14,7 +14,7 @@ html, body, [class*="stApp"] {
 .stApp {
     position: relative;
     min-height: 100vh;
-    background: url("samsat.jpg") no-repeat center center fixed; /* pastikan samsat.jpg ada di repo */
+    background: url("assets/samsat.jpg") no-repeat center center fixed; /* pastikan samsat.jpg ada di repo */
     background-size: cover;
     color: #ffffff;
 }
