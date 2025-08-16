@@ -11,12 +11,6 @@ import nltk
 from nltk.util import ngrams
 import re
 
-# Download stopwords jika belum ada
-try:
-    nltk.data.find('corpora/stopwords')
-except nltk.downloader.DownloadError:
-    nltk.download('stopwords')
-
 # --- KONFIGURASI HALAMAN DAN GAYA (CSS) ---
 st.set_page_config(
     page_title="Dashboard Analisis Sentimen",
@@ -24,27 +18,19 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Fungsi untuk menerapkan CSS kustom
-def local_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-# Anda bisa membuat file style.css atau langsung menaruh CSS di sini
-# Untuk kemudahan, kita taruh langsung di sini
+# CSS untuk tema modern biru keunguan
 st.markdown("""
 <style>
 /* Latar Belakang Utama */
 .stApp {
-    background-color: #0d1117; /* Warna dasar gelap */
+    background-color: #0d1117;
     background-image: linear-gradient(160deg, #0d1117 0%, #21262d 100%);
 }
-
 /* Sidebar */
 .css-1d391kg {
     background-color: rgba(25, 30, 40, 0.8);
     border-right: 1px solid rgba(255, 255, 255, 0.1);
 }
-
 /* Kartu Metrik */
 .stMetric {
     background-color: rgba(40, 50, 70, 0.5);
@@ -53,25 +39,21 @@ st.markdown("""
     border-radius: 10px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
-
 /* Judul dan Teks */
-h1, h2, h3 {
-    color: #c9d1d9;
-}
-
+h1, h2, h3 { color: #c9d1d9; }
 /* Tombol */
 .stButton>button {
-    border: 2px solid #30363d;
-    border-radius: 10px;
-    color: #c9d1d9;
-    background-color: #21262d;
+    border: 2px solid #30363d; border-radius: 10px; color: #c9d1d9; background-color: #21262d;
 }
-.stButton>button:hover {
-    border-color: #8b949e;
-    color: #f0f6fc;
-}
+.stButton>button:hover { border-color: #8b949e; color: #f0f6fc; }
 </style>
 """, unsafe_allow_html=True)
+
+# Download stopwords jika belum ada (diperlukan untuk wordcloud)
+try:
+    nltk.data.find('corpora/stopwords')
+except nltk.downloader.DownloadError:
+    nltk.download('stopwords')
 
 
 # --- FUNGSI-FUNGSI UTAMA (KONEKSI, MODEL, ANALISIS) ---
@@ -84,196 +66,155 @@ def connect_to_gsheet():
     return client
 
 @st.cache_data(ttl=300)
-def fetch_data_from_gsheet(_gsheet_client, sheet_name, worksheet_name):
+def fetch_data_from_gsheet(_gsheet_client, sheet_name, worksheet_name, comment_column):
     st.toast("🔄 Mengambil data baru dari Google Sheets...")
-    sheet = _gsheet_client.open(sheet_name).worksheet(worksheet_name)
+    try:
+        sheet = _gsheet_client.open(sheet_name).worksheet(worksheet_name)
+    except gspread.exceptions.SpreadsheetNotFound:
+        st.error(f"Spreadsheet dengan nama '{sheet_name}' tidak ditemukan.")
+        return pd.DataFrame()
+    except gspread.exceptions.WorksheetNotFound:
+        st.error(f"Worksheet dengan nama '{worksheet_name}' tidak ditemukan.")
+        return pd.DataFrame()
+        
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
-    # Pastikan kolom 'komentar' ada dan bertipe string
-    if 'komentar' in df.columns:
-        df = df[df['komentar'].astype(str).str.strip() != ''] # Hapus baris komentar kosong
+
+    # --- PENANGANAN KOLOM YANG LEBIH BAIK ---
+    # Periksa apakah kolom komentar ada (tidak case-sensitive)
+    proper_comment_column = None
+    for col in df.columns:
+        if col.lower() == comment_column.lower():
+            proper_comment_column = col
+            break
+    
+    if not proper_comment_column:
+        st.error(f"Kolom '{comment_column}' tidak ditemukan di spreadsheet. Kolom yang tersedia: {df.columns.tolist()}")
+        return pd.DataFrame()
+    
+    # Ganti nama kolom komentar menjadi 'komentar' untuk konsistensi
+    df.rename(columns={proper_comment_column: 'komentar'}, inplace=True)
+
+    # Konversi kolom 'Tanggal' ke datetime
+    if 'Tanggal' in df.columns:
+        df['tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
+        df = df.dropna(subset=['tanggal']) # Hapus baris dengan tanggal tidak valid
+    
+    # Hapus baris dengan komentar kosong
+    df = df[df['komentar'].astype(str).str.strip() != '']
     return df
 
 @st.cache_resource
 def load_sentiment_model():
-    model = pipeline(
-        "sentiment-analysis",
-        model="indobenchmark/indobert-base-p2-sentiment-classifier"
-    )
+    model = pipeline("sentiment-analysis", model="indobenchmark/indobert-base-p2-sentiment-classifier")
     return model
 
 @st.cache_data
 def analyze_sentiment(_df, _model):
-    if 'komentar' not in _df.columns:
-        st.error("Spreadsheet harus memiliki kolom bernama 'komentar'.")
-        return pd.DataFrame() # Kembalikan DataFrame kosong jika tidak ada kolom 'komentar'
+    if 'komentar' not in _df.columns or _df.empty:
+        return _df
 
     texts = _df['komentar'].tolist()
     results = _model(texts)
     
-    _df['sentimen'] = [res['label'] for res in results]
+    _df['sentimen'] = [res['label'].replace('positive', 'Positif').replace('negative', 'Negatif').replace('neutral', 'Netral') for res in results]
     _df['skor'] = [res['score'] for res in results]
-    # Ubah label menjadi lebih mudah dibaca
-    _df['sentimen'] = _df['sentimen'].replace({'positive': 'Positif', 'negative': 'Negatif', 'neutral': 'Netral'})
     return _df
 
-# --- FUNGSI-FUNGSI VISUALISASI ---
-
+# --- FUNGSI-FUNGSI VISUALISASI --- (Sama seperti sebelumnya, tapi lebih baik ditaruh di sini)
 def create_wordcloud(text_series, title):
     stopwords_indonesia = set(nltk.corpus.stopwords.words('indonesian'))
     text = ' '.join(text_series.astype(str).tolist())
+    if not text: return
     
-    wordcloud = WordCloud(
-        width=800, 
-        height=400, 
-        background_color=None, # Transparan
-        colormap='viridis',
-        stopwords=stopwords_indonesia,
-        mode="RGBA"
-    ).generate(text)
-    
+    wordcloud = WordCloud(width=800, height=400, background_color=None, colormap='viridis', stopwords=stopwords_indonesia, mode="RGBA").generate(text)
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.imshow(wordcloud, interpolation='bilinear')
     ax.axis('off')
-    plt.title(title, color='white', fontsize=20)
-    fig.patch.set_alpha(0) # Transparan
+    fig.patch.set_alpha(0)
     st.pyplot(fig)
-
-def create_ngram_barchart(text_series, n, title):
-    stopwords_indonesia = set(nltk.corpus.stopwords.words('indonesian'))
-    
-    # Membersihkan teks
-    def clean_text(text):
-        text = text.lower()
-        text = re.sub(r'[^a-z\s]', '', text)
-        return text
-
-    words = [word for text in text_series.apply(clean_text) for word in text.split() if word not in stopwords_indonesia]
-    
-    n_grams = ngrams(words, n)
-    ngram_counts = Counter(n_grams)
-    
-    most_common_ngrams = ngram_counts.most_common(10)
-    
-    if not most_common_ngrams:
-        st.write(f"Tidak cukup data untuk membuat grafik {title}.")
-        return
-
-    ngram_df = pd.DataFrame(most_common_ngrams, columns=['ngram', 'count'])
-    ngram_df['ngram'] = ngram_df['ngram'].apply(lambda x: ' '.join(x))
-    
-    fig = px.bar(
-        ngram_df, 
-        x='count', 
-        y='ngram', 
-        orientation='h', 
-        title=title,
-        labels={'count': 'Jumlah', 'ngram': 'Frasa'},
-        template='plotly_dark'
-    )
-    fig.update_layout(yaxis={'categoryorder':'total ascending'})
-    st.plotly_chart(fig, use_container_width=True)
-
 
 # --- UI APLIKASI STREAMLIT ---
 
-# Sidebar
+# Sidebar untuk konfigurasi
 with st.sidebar:
-    st.title("⚙️ Kontrol Dasbor")
-    st.markdown("Dasbor ini menganalisis sentimen dari komentar yang tersimpan di Google Sheets.")
+    st.title("⚙️ Konfigurasi Dasbor")
+    st.markdown("Masukkan detail Google Spreadsheet Anda di bawah ini.")
     
-    # GANTI DENGAN NAMA SPREADSHEET DAN WORKSHEET ANDA
-    NAMA_SPREADSHEET = "Nama Spreadsheet Anda"  # <--- GANTI INI
-    NAMA_WORKSHEET = "Sheet1"                # <--- GANTI INI (biasanya 'Sheet1')
+    NAMA_SPREADSHEET = st.text_input("Nama Google Spreadsheet", value="Nama Spreadsheet Anda")
+    NAMA_WORKSHEET = st.text_input("Nama Worksheet", value="Sheet1")
+    KOLOM_KOMENTAR = st.text_input("Nama Kolom Komentar", value="Komentar")
 
-    if st.button("🔄 Refresh Data & Analisis"):
+    if st.button("🔄 Muat Ulang & Analisis Data"):
         st.cache_data.clear()
         st.cache_resource.clear()
         st.rerun()
 
     st.info("Data diperbarui secara otomatis setiap 5 menit. Klik tombol untuk pembaruan instan.")
 
-
 st.title("📊 Dasbor Analisis Sentimen Komprehensif")
-st.markdown("Menggunakan Model IndoBERT untuk menganalisis komentar secara *real-time*.")
+st.markdown("Menganalisis komentar dari Google Sheets menggunakan Model IndoBERT.")
 
 # Main logic
 try:
     gsheet_client = connect_to_gsheet()
-    raw_df = fetch_data_from_gsheet(gsheet_client, NAMA_SPREADSHEET, NAMA_WORKSHEET)
+    raw_df = fetch_data_from_gsheet(gsheet_client, NAMA_SPREADSHEET, NAMA_WORKSHEET, KOLOM_KOMENTAR)
     
-    if raw_df.empty or 'komentar' not in raw_df.columns:
-        st.warning("⚠️ Spreadsheet kosong atau tidak memiliki kolom 'komentar'. Mohon isi data terlebih dahulu.")
+    if raw_df.empty:
+        st.warning("⚠️ Tidak ada data untuk dianalisis. Periksa konfigurasi sidebar atau isi spreadsheet Anda.")
     else:
         sentiment_model = load_sentiment_model()
         df = analyze_sentiment(raw_df.copy(), sentiment_model)
 
-        # Membuat Tabs untuk layout yang rapi
-        tab1, tab2, tab3 = st.tabs(["📈 Ringkasan Umum", "🔑 Analisis Kata Kunci", "📄 Jelajahi Data"])
+        tab1, tab2, tab3 = st.tabs(["📈 Ringkasan & Tren", "🔑 Analisis Kata Kunci", "📄 Jelajahi Data"])
 
         with tab1:
             st.header("Ringkasan Metrik Utama")
             col1, col2, col3, col4 = st.columns(4)
             sentiment_counts = df['sentimen'].value_counts()
             
-            with col1:
-                st.metric(label="Total Komentar Dianalisis", value=len(df))
-            with col2:
-                st.metric(label="👍 Komentar Positif", value=sentiment_counts.get('Positif', 0))
-            with col3:
-                st.metric(label="👎 Komentar Negatif", value=sentiment_counts.get('Negatif', 0))
-            with col4:
-                st.metric(label="😐 Komentar Netral", value=sentiment_counts.get('Netral', 0))
+            col1.metric("Total Komentar", len(df))
+            col2.metric("👍 Komentar Positif", sentiment_counts.get('Positif', 0))
+            col3.metric("👎 Komentar Negatif", sentiment_counts.get('Negatif', 0))
+            col4.metric("😐 Komentar Netral", sentiment_counts.get('Netral', 0))
 
             st.header("Distribusi Sentimen")
-            fig_pie = px.pie(
-                df, 
-                names='sentimen', 
-                title='Persentase Sentimen Komentar',
-                hole=0.4,
-                color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'}
-            )
-            fig_pie.update_layout(template='plotly_dark')
+            fig_pie = px.pie(df, names='sentimen', title='Persentase Sentimen', hole=0.4,
+                             color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
+                             template='plotly_dark')
             st.plotly_chart(fig_pie, use_container_width=True)
+
+            # --- VISUALISASI BARU: TREN SENTIMEN ---
+            if 'tanggal' in df.columns:
+                st.header("Tren Sentimen Berdasarkan Tanggal")
+                df_tren = df.copy()
+                df_tren['tanggal_saja'] = df_tren['tanggal'].dt.date
+                sentimen_per_hari = df_tren.groupby(['tanggal_saja', 'sentimen']).size().unstack(fill_value=0)
+                
+                fig_tren = px.line(sentimen_per_hari, x=sentimen_per_hari.index, y=sentimen_per_hari.columns,
+                                   title='Jumlah Komentar per Hari', markers=True,
+                                   labels={'tanggal_saja': 'Tanggal', 'value': 'Jumlah Komentar', 'sentimen': 'Sentimen'},
+                                   color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
+                                   template='plotly_dark')
+                st.plotly_chart(fig_tren, use_container_width=True)
+
 
         with tab2:
             st.header("Kata Kunci yang Paling Sering Muncul")
-            
             df_positif = df[df['sentimen'] == 'Positif']['komentar']
             df_negatif = df[df['sentimen'] == 'Negatif']['komentar']
-
             col1, col2 = st.columns(2)
             with col1:
-                if not df_positif.empty:
-                    create_wordcloud(df_positif, "Word Cloud Sentimen Positif")
-                else:
-                    st.write("Tidak ada data sentimen positif untuk Word Cloud.")
-            
+                st.subheader("Dari Komentar Positif")
+                create_wordcloud(df_positif, "")
             with col2:
-                if not df_negatif.empty:
-                    create_wordcloud(df_negatif, "Word Cloud Sentimen Negatif")
-                else:
-                    st.write("Tidak ada data sentimen negatif untuk Word Cloud.")
-            
-            st.header("Frasa Umum (Bigram)")
-            col3, col4 = st.columns(2)
-            with col3:
-                if not df_positif.empty:
-                    create_ngram_barchart(df_positif, 2, "Frasa Positif Paling Umum")
-                else:
-                    st.write("Tidak ada data sentimen positif untuk Analisis Frasa.")
-            with col4:
-                if not df_negatif.empty:
-                    create_ngram_barchart(df_negatif, 2, "Frasa Negatif Paling Umum")
-                else:
-                    st.write("Tidak ada data sentimen negatif untuk Analisis Frasa.")
+                st.subheader("Dari Komentar Negatif")
+                create_wordcloud(df_negatif, "")
 
         with tab3:
             st.header("Detail Data dan Hasil Analisis")
-            st.markdown("Anda dapat mencari dan mengurutkan data di bawah ini.")
-            st.dataframe(df, use_container_width=True)
-
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
 except Exception as e:
-    st.error(f"❌ Terjadi kesalahan: {e}")
-    st.info("Pastikan konfigurasi `secrets.toml` benar dan spreadsheet sudah dibagikan dengan email service account.")
+    st.error(f"❌ Terjadi kesalahan tak terduga: {e}")
+    st.info("Pastikan konfigurasi di sidebar sudah benar, file `secrets.toml` ada, dan spreadsheet sudah dibagikan dengan email service account.")
