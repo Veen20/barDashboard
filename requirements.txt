@@ -1,8 +1,12 @@
-streamlit
+streamlit>=1.24
 pandas
 numpy
+plotly
+matplotlib
+wordcloud
 transformers
 torch
-plotly
-gspread
-google-auth
+Sastrawi
+streamlit-option-menu
+statsmodels
+
