@@ -1,22 +1,5 @@
-/* style.css */
+/* file: streamlit/style.css */
 .stApp {
-    background: url("C:\Users\peni ilhami\Downloads\Folder Tugas Ven\Semester4_2025\MAGANG 2025\samsat.jpg") no-repeat center center fixed;
+    background: url("../assets/samsat.jpg") no-repeat center center fixed;
     background-size: cover;
-    position: relative;
-}
-
-.stApp::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.4); /* overlay transparan */
-    z-index: 0;
-}
-
-.stApp > * {
-    position: relative;
-    z-index: 1;
 }
