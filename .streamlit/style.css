@@ -1,38 +1,107 @@
-/* Background utama dengan gambar + gradient overlay */
+/* Background mewah: gambar + overlay + animasi halus */
+:root {
+  --primary: #2E86C1;
+  --accent: #F4D03F;
+  --text: #1B2631;
+  --card: #ffffff;
+  --bg: #fbfcfd;
+}
+
+/* Dark mode variables */
+.dark-mode :root,
+.dark-mode {
+  --text: #e6eef8;
+  --card: #0b1220;
+  --bg: #050a18;
+}
+
+html, body, .stApp {
+  height: 100%;
+}
+
 .stApp {
-    background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)),
-                url("assets/samsat.jpg");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-    color: white;
-    font-family: "Segoe UI", sans-serif;
+  background:
+    linear-gradient(rgba(5,10,24,0.35), rgba(5,10,24,0.35)),
+    url("assets/samsat.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition: background 0.5s ease;
 }
 
-/* Sidebar semi-transparent dengan blur */
-.stSidebar {
-    background-color: rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
-    color: white;
-    padding: 20px;
-    border-radius: 10px;
+/* Sidebar blur + transparan */
+[data-testid="stSidebar"] {
+  background: rgba(10, 15, 30, 0.55) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-/* Judul dan header */
-h1, h2, h3, h4 {
-    color: #ffffff;
+/* Hero */
+.hero {
+  background: linear-gradient(90deg, rgba(46,134,193,0.12), rgba(244,208,63,0.06));
+  padding: 18px 22px;
+  border-radius: 16px;
+  box-shadow: 0 10px 26px rgba(0,0,0,0.08);
+  animation: fadeUp .5s ease forwards;
 }
 
-/* Tombol dengan hover efek */
-.stButton button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: 0.3s;
+/* Metric cards */
+.metric-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.10);
+  transition: transform .18s ease, box-shadow .18s ease;
+  margin-top: 6px;
 }
-.stButton button:hover {
-    background-color: #45a049;
+.metric-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 20px 44px rgba(0,0,0,0.16);
 }
+.metric-title {
+  font-size: 11px;
+  color: #8a94a6;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+.metric-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+/* Buttons */
+.stButton>button, .stDownloadButton>button {
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  background: var(--primary) !important;
+  color: #fff !important;
+  border: none !important;
+  transition: transform .15s ease, filter .2s ease;
+}
+.stButton>button:hover, .stDownloadButton>button:hover {
+  filter: brightness(0.9);
+  transform: translateY(-1px);
+}
+
+/* Footer */
+footer {
+  margin-top: 24px;
+  text-align: center;
+  color: #ffffff;
+  opacity: .85;
+  font-size: 12px;
+}
+
+/* Animasi */
+@keyframes fadeUp {
+  from {opacity:0; transform: translateY(10px);}
+  to {opacity:1; transform: translateY(0);}
+}
+
+/* Dark mode */
+.dark-mode .metric-card { background: #0b1220; }
+.dark-mode .hero { box-shadow: 0 10px 26px rgba(0,0,0,0.35); }
