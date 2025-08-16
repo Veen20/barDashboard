@@ -27,19 +27,68 @@ from wordcloud import WordCloud
 
 import streamlit as st
 
-# Tambah CSS untuk background foto
-st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(rgba(11,16,32,0.85), rgba(11,16,32,0.85)),
-                    url("assets/samsat.jpg");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        color: #e6ecff;
-    }
-    </style>
-""", unsafe_allow_html=True)
+import streamlit as st
+import os
+
+# -----------------------------
+# Load CSS
+# -----------------------------
+def load_css(file_path):
+    """Load CSS file lokal"""
+    if os.path.exists(file_path):
+        with open(file_path) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        st.warning(f"File CSS tidak ditemukan: {file_path}")
+
+load_css("style.css")
+
+# -----------------------------
+# Konfigurasi Streamlit
+# -----------------------------
+st.set_page_config(
+    page_title="Dashboard Interaktif",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# -----------------------------
+# Sidebar
+# -----------------------------
+with st.sidebar:
+    st.title("Menu Sidebar")
+    pilihan = st.radio("Pilih Visualisasi", ["Home", "Data", "Analisis"])
+    st.button("Refresh Data")
+
+# -----------------------------
+# Konten Utama
+# -----------------------------
+st.title("Dashboard Interaktif e-SIGNAL / SAMSAT")
+st.write("Visualisasi interaktif data transaksi dan komentar masyarakat.")
+
+if pilihan == "Home":
+    st.subheader("Beranda")
+    st.write("Selamat datang di dashboard modern ini!")
+elif pilihan == "Data":
+    st.subheader("Data Transaksi")
+    st.write("Visualisasi tabel atau grafik data transaksi dapat ditampilkan di sini.")
+elif pilihan == "Analisis":
+    st.subheader("Analisis Sentimen")
+    st.write("Hasil analisis sentimen masyarakat dapat ditampilkan di sini.")
+
+# -----------------------------
+# Footer
+# -----------------------------
+st.markdown(
+    """
+    <footer style='text-align:center; margin-top:50px; color:white;'>
+        &copy; 2025 Dashboard Interaktif e-SIGNAL / SAMSAT
+    </footer>
+    """,
+    unsafe_allow_html=True
+)
+
 # Optional: nicer sidebar menu
 try:
     from streamlit_option_menu import option_menu
