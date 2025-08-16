@@ -1,6 +1,6 @@
 /* Background image */
 .stApp {
-    background-image: url("../assets/samsat.jpg");
+    background-image: url("assets/samsat.jpg");
     background-size: cover;
     background-attachment: fixed;
     background-position: center;
