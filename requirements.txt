@@ -9,3 +9,13 @@ torch
 Sastrawi
 streamlit-option-menu
 statsmodels
+streamlit
+pandas
+gspread
+google-auth-oauthlib
+torch
+transformers
+wordcloud
+plotly
+scikit-learn
+nltk
