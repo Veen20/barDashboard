@@ -1,216 +1,249 @@
-import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
-from transformers import pipeline
-import plotly.express as px
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-from collections import Counter
-import nltk
-from nltk.util import ngrams
-import re
+import os
+import time
+from typing import List, Tuple
 
-# --- KONFIGURASI HALAMAN DAN GAYA (CSS) ---
+import pandas as pd
+import numpy as np
+import streamlit as st
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, TextClassificationPipeline
+from streamlit_gsheets import GSheetsConnection
+from streamlit_autorefresh import st_autorefresh
+import plotly.express as px
+
+# ========= THEME & PAGE =========
 st.set_page_config(
-    page_title="Dashboard Analisis Sentimen",
+    page_title="Sentimen e-SIGNAL – Dashboard",
+    page_icon="💬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS untuk tema modern biru keunguan
+# Custom CSS - Deep modern look
 st.markdown("""
 <style>
-/* Latar Belakang Utama */
-.stApp {
-    background-color: #0d1117;
-    background-image: linear-gradient(160deg, #0d1117 0%, #21262d 100%);
+:root {
+  --bg-deep: #0b1020;
+  --panel: #111a2b;
+  --panel-2: #0e1524;
+  --accent: #5b8cff;
+  --accent-2: #8c5bff;
+  --text: #e6ecff;
+  --muted: #94a3b8;
+  --pos: #10b981;   /* green */
+  --neg: #ef4444;   /* red */
+  --neu: #f59e0b;   /* amber */
 }
-/* Sidebar */
-.css-1d391kg {
-    background-color: rgba(25, 30, 40, 0.8);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+html, body, [data-testid="stAppViewContainer"] {
+  background: radial-gradient(1200px 800px at 10% 10%, #0f1b35 0%, var(--bg-deep) 45%, #070b15 100%) !important;
+  color: var(--text);
 }
-/* Kartu Metrik */
-.stMetric {
-    background-color: rgba(40, 50, 70, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+[data-testid="stHeader"] { background: linear-gradient(180deg, rgba(7,11,21,.9), rgba(7,11,21,0)); }
+.block-container { padding-top: 1rem; }
+.deep-card {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.35);
 }
-/* Judul dan Teks */
-h1, h2, h3 { color: #c9d1d9; }
-/* Tombol */
-.stButton>button {
-    border: 2px solid #30363d; border-radius: 10px; color: #c9d1d9; background-color: #21262d;
+.badge {
+  display:inline-block; padding:4px 10px; border-radius:999px; font-size:.78rem; font-weight:600;
+  letter-spacing:.3px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.04);
 }
-.stButton>button:hover { border-color: #8b949e; color: #f0f6fc; }
+.kpi { font-size: 28px; font-weight: 700; letter-spacing: .3px; }
+.sep { height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent); margin: 12px 0; }
+a { color: var(--accent) !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- PERBAIKAN BAGIAN NLTK ---
-# Download stopwords jika belum ada (diperlukan untuk wordcloud)
-try:
-    nltk.data.find('corpora/stopwords')
-except LookupError: # <-- PERBAIKAN DILAKUKAN DI SINI
-    st.info("Mengunduh data NLTK (stopwords)... Ini hanya terjadi sekali.")
-    nltk.download('stopwords')
+# ========= SIDEBAR =========
+with st.sidebar:
+    st.markdown("### 💬 Sentimen e-SIGNAL")
+    st.caption("Dashboard modern • IndoBERTweet • Google Sheets realtime")
+    refresh_sec = st.slider("Auto-refresh (detik)", 10, 120, 30, help="Perbarui data secara periodik")
+    predict_mode = st.radio(
+        "Mode Prediksi",
+        ["Hanya baris baru (disarankan)", "Semua baris (paksa ulang)"],
+        index=0,
+        help="‘Semua baris’ akan menghitung ulang seluruh kolom, gunakan bila kamu mengganti model."
+    )
+    writeback = st.toggle("Tulis hasil ke Google Sheets", value=True,
+                          help="Jika aktif, kolom sentimen & skor akan diperbarui di sheet.")
 
+# Auto refresh
+st_autorefresh(interval=refresh_sec * 1000, key="auto_refresh_key")
 
-# --- FUNGSI-FUNGSI UTAMA (KONEKSI, MODEL, ANALISIS) ---
+# ========= MODEL =========
+@st.cache_resource(show_spinner=True)
+def load_model() -> TextClassificationPipeline:
+    model_name = "Aardiiiiy/indobertweet-base-Indonesian-sentiment-analysis"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    pipe = TextClassificationPipeline(model=model, tokenizer=tokenizer, return_all_scores=True)
+    return pipe
 
-@st.cache_resource
-def connect_to_gsheet():
-    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scopes)
-    client = gspread.authorize(creds)
-    return client
+pipe = load_model()
 
-@st.cache_data(ttl=300)
-def fetch_data_from_gsheet(_gsheet_client, sheet_name, worksheet_name, comment_column):
-    st.toast("🔄 Mengambil data baru dari Google Sheets...")
-    try:
-        sheet = _gsheet_client.open(sheet_name).worksheet(worksheet_name)
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error(f"Spreadsheet dengan nama '{sheet_name}' tidak ditemukan.")
-        return pd.DataFrame()
-    except gspread.exceptions.WorksheetNotFound:
-        st.error(f"Worksheet dengan nama '{worksheet_name}' tidak ditemukan.")
-        return pd.DataFrame()
-        
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
+# ========= SHEETS CONNECTION =========
+# Secrets required:   [connections.gsheets]   spreadsheet = "https://docs.google.com/..."
+@st.cache_resource(show_spinner=False)
+def connect_gsheets() -> GSheetsConnection:
+    return st.connection("gsheets", type=GSheetsConnection)
 
-    proper_comment_column = None
-    for col in df.columns:
-        if col.lower() == comment_column.lower():
-            proper_comment_column = col
-            break
-    
-    if not proper_comment_column:
-        st.error(f"Kolom '{comment_column}' tidak ditemukan. Kolom yang tersedia: {df.columns.tolist()}")
-        return pd.DataFrame()
-    
-    df.rename(columns={proper_comment_column: 'komentar'}, inplace=True)
+conn = connect_gsheets()
 
-    if 'Tanggal' in df.columns:
-        df['tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
-        df.dropna(subset=['tanggal'], inplace=True)
-    
-    df = df[df['komentar'].astype(str).str.strip() != '']
+@st.cache_data(ttl=15, show_spinner=False)
+def load_df(sheet: str = "Sheet1") -> pd.DataFrame:
+    df = conn.read(worksheet=sheet, ttl=0)  # always fetch fresh on call; caching at Streamlit level
+    if df is None or len(df) == 0:
+        return pd.DataFrame(columns=["timestamp", "ulasan"])
+    # Normalize columns
+    cols = {c.lower().strip(): c for c in df.columns}
+    # Ensure required columns
+    if "ulasan" not in [c.lower() for c in df.columns]:
+        # Try alternate names
+        text_col = None
+        for c in df.columns:
+            if c.lower() in ("review", "komentar", "text", "pesan"):
+                text_col = c
+                break
+        if text_col:
+            df = df.rename(columns={text_col: "ulasan"})
+        else:
+            df["ulasan"] = ""
+    if "timestamp" not in df.columns:
+        df["timestamp"] = pd.Timestamp.now(tz="Asia/Jakarta")
+    # Ensure sentiment columns
+    if "sentiment" not in df.columns:
+        df["sentiment"] = np.nan
+    if "score" not in df.columns:
+        df["score"] = np.nan
     return df
 
-@st.cache_resource
-def load_sentiment_model():
-    model = pipeline("sentiment-analysis", model="indobenchmark/indobert-base-p2-sentiment-classifier")
-    return model
+df = load_df()
 
-@st.cache_data
-def analyze_sentiment(_df, _model):
-    if 'komentar' not in _df.columns or _df.empty:
-        return _df
+# ========= PREDICT =========
+LABEL_MAP = {
+    "positive": "Positif",
+    "negative": "Negatif",
+    "neutral":  "Netral"
+}
 
-    texts = _df['komentar'].tolist()
-    results = _model(texts)
-    
-    _df['sentimen'] = [res['label'].replace('positive', 'Positif').replace('negative', 'Negatif').replace('neutral', 'Netral') for res in results]
-    _df['skor'] = [res['score'] for res in results]
-    return _df
+def predict_batch(texts: List[str]) -> List[Tuple[str, float]]:
+    if not texts:
+        return []
+    preds = []
+    # pipe returns list of list of dicts [{label, score}, ...]
+    outputs = pipe(texts)
+    for scores in outputs:
+        # pick max
+        best = max(scores, key=lambda s: float(s["score"]))
+        lab = LABEL_MAP.get(best["label"].lower(), best["label"])
+        preds.append((lab, float(best["score"])))
+    return preds
 
-def create_wordcloud(text_series, title):
-    stopwords_indonesia = set(nltk.corpus.stopwords.words('indonesian'))
-    text = ' '.join(text_series.astype(str).tolist())
-    if not text: return
-    
-    wordcloud = WordCloud(width=800, height=400, background_color=None, colormap='viridis', stopwords=stopwords_indonesia, mode="RGBA").generate(text)
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.imshow(wordcloud, interpolation='bilinear')
-    ax.axis('off')
-    fig.patch.set_alpha(0)
-    st.pyplot(fig)
+def need_prediction(row) -> bool:
+    if predict_mode.startswith("Semua"):
+        return True
+    return (pd.isna(row.get("sentiment")) or str(row.get("sentiment")).strip() == "")
 
-# --- UI APLIKASI STREAMLIT ---
+mask = df.apply(need_prediction, axis=1) if len(df) else pd.Series([], dtype=bool)
+to_pred = df.loc[mask, "ulasan"].fillna("").astype(str).tolist()
+with st.spinner("Menghitung sentimen dengan IndoBERTweet..."):
+    new_preds = predict_batch(to_pred)
 
-with st.sidebar:
-    st.title("⚙️ Konfigurasi Dasbor")
-    st.markdown("Masukkan detail Google Spreadsheet Anda di bawah ini.")
-    
-    NAMA_SPREADSHEET = st.text_input("Nama Google Spreadsheet", value="")
-    NAMA_WORKSHEET = st.text_input("Nama Worksheet", value="Sheet1")
-    KOLOM_KOMENTAR = st.text_input("Nama Kolom Komentar", value="Komentar")
+if len(new_preds):
+    df.loc[mask, "sentiment"] = [p[0] for p in new_preds]
+    df.loc[mask, "score"] = [round(p[1], 4) for p in new_preds]
+    # Optionally write-back
+    if writeback:
+        try:
+            conn.update(data=df)
+        except Exception as e:
+            st.warning(f"Gagal menulis balik ke Google Sheets: {e}")
 
-    if st.button("🔄 Muat Ulang & Analisis Data"):
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        st.rerun()
+# ========= HEADER =========
+st.markdown(
+    """
+<div class="deep-card">
+  <div style="display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+    <div class="badge">IndoBERTweet • 3 kelas</div>
+    <div class="badge">Realtime Google Sheets</div>
+    <div class="badge">Dark • Deep</div>
+  </div>
+  <div class="sep"></div>
+  <h1 style="margin:0">Dashboard Sentimen e-SIGNAL</h1>
+  <p style="color:var(--muted); margin:.2rem 0 0;">Pantau persepsi publik terhadap layanan e-SIGNAL secara langsung.</p>
+</div>
+""",
+    unsafe_allow_html=True
+)
 
-    st.info("Data diperbarui secara otomatis setiap 5 menit. Klik tombol untuk pembaruan instan.")
+# ========= KPIs =========
+pos = (df["sentiment"] == "Positif").sum() if "sentiment" in df else 0
+neg = (df["sentiment"] == "Negatif").sum() if "sentiment" in df else 0
+neu = (df["sentiment"] == "Netral").sum()  if "sentiment" in df else 0
+total = len(df)
 
-st.title("📊 Dasbor Analisis Sentimen Komprehensif")
-st.markdown("Menganalisis komentar dari Google Sheets menggunakan Model IndoBERT.")
+c1, c2, c3, c4 = st.columns([1,1,1,1])
+with c1:
+    st.markdown('<div class="deep-card"><div class="kpi">📈 Positif</div><div style="color:var(--pos); font-size:22px; font-weight:700;">{}</div></div>'.format(pos), unsafe_allow_html=True)
+with c2:
+    st.markdown('<div class="deep-card"><div class="kpi">📉 Negatif</div><div style="color:var(--neg); font-size:22px; font-weight:700;">{}</div></div>'.format(neg), unsafe_allow_html=True)
+with c3:
+    st.markdown('<div class="deep-card"><div class="kpi">➖ Netral</div><div style="color:var(--neu); font-size:22px; font-weight:700;">{}</div></div>'.format(neu), unsafe_allow_html=True)
+with c4:
+    st.markdown('<div class="deep-card"><div class="kpi">🧾 Total</div><div style="font-size:22px; font-weight:700;">{}</div></div>'.format(total), unsafe_allow_html=True)
 
-# Main logic
-if not NAMA_SPREADSHEET:
-    st.info("Silakan masukkan Nama Google Spreadsheet di sidebar untuk memulai.")
+st.write(" ")
+
+# ========= DISTRIBUSI =========
+if total:
+    fig = px.pie(
+        df.dropna(subset=["sentiment"]),
+        names="sentiment",
+        title="Distribusi Sentimen",
+        hole=0.45
+    )
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+        font_color="#e6ecff", title_font_size=18,
+        showlegend=True
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# ========= TREN WAKTU =========
+if total and "timestamp" in df.columns:
+    tmp = df.copy()
+    tmp["dt"] = pd.to_datetime(tmp["timestamp"], errors="coerce")
+    tmp = tmp.dropna(subset=["dt"])
+    if len(tmp):
+        daily = (tmp.groupby([pd.Grouper(key="dt", freq="D"), "sentiment"])
+                 .size().reset_index(name="jumlah"))
+        fig2 = px.line(daily, x="dt", y="jumlah", color="sentiment", title="Tren Harian per Sentimen")
+        fig2.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+            font_color="#e6ecff", title_font_size=18
+        )
+        st.plotly_chart(fig2, use_container_width=True)
+
+# ========= TABEL =========
+st.markdown("#### 🔎 Sampel Ulasan Terbaru")
+if total:
+    show_cols = [c for c in ["timestamp", "ulasan", "sentiment", "score"] if c in df.columns]
+    st.dataframe(df[show_cols].sort_values(by=show_cols[0], ascending=False).head(100), use_container_width=True)
 else:
-    try:
-        gsheet_client = connect_to_gsheet()
-        raw_df = fetch_data_from_gsheet(gsheet_client, NAMA_SPREADSHEET, NAMA_WORKSHEET, KOLOM_KOMENTAR)
-        
-        if raw_df.empty:
-            st.warning("⚠️ Tidak ada data untuk dianalisis. Periksa konfigurasi sidebar atau isi spreadsheet Anda.")
-        else:
-            sentiment_model = load_sentiment_model()
-            df = analyze_sentiment(raw_df.copy(), sentiment_model)
+    st.info("Belum ada data di Google Sheets. Tambahkan kolom **ulasan** dan (opsional) **timestamp**.")
 
-            tab1, tab2, tab3 = st.tabs(["📈 Ringkasan & Tren", "🔑 Analisis Kata Kunci", "📄 Jelajahi Data"])
-
-            with tab1:
-                st.header("Ringkasan Metrik Utama")
-                col1, col2, col3, col4 = st.columns(4)
-                sentiment_counts = df['sentimen'].value_counts()
-                
-                col1.metric("Total Komentar", len(df))
-                col2.metric("👍 Komentar Positif", sentiment_counts.get('Positif', 0))
-                col3.metric("👎 Komentar Negatif", sentiment_counts.get('Negatif', 0))
-                col4.metric("😐 Komentar Netral", sentiment_counts.get('Netral', 0))
-
-                st.header("Distribusi Sentimen")
-                fig_pie = px.pie(df, names='sentimen', title='Persentase Sentimen', hole=0.4,
-                                 color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
-                                 template='plotly_dark')
-                st.plotly_chart(fig_pie, use_container_width=True)
-
-                if 'tanggal' in df.columns:
-                    st.header("Tren Sentimen Berdasarkan Tanggal")
-                    df_tren = df.copy()
-                    df_tren['tanggal_saja'] = df_tren['tanggal'].dt.date
-                    sentimen_per_hari = df_tren.groupby(['tanggal_saja', 'sentimen']).size().unstack(fill_value=0)
-                    
-                    fig_tren = px.line(sentimen_per_hari, x=sentimen_per_hari.index, y=sentimen_per_hari.columns,
-                                       title='Jumlah Komentar per Hari', markers=True,
-                                       labels={'tanggal_saja': 'Tanggal', 'value': 'Jumlah Komentar', 'sentimen': 'Sentimen'},
-                                       color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
-                                       template='plotly_dark')
-                    st.plotly_chart(fig_tren, use_container_width=True)
-
-            with tab2:
-                st.header("Kata Kunci yang Paling Sering Muncul")
-                df_positif = df[df['sentimen'] == 'Positif']['komentar']
-                df_negatif = df[df['sentimen'] == 'Negatif']['komentar']
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.subheader("Dari Komentar Positif")
-                    create_wordcloud(df_positif, "")
-                with col2:
-                    st.subheader("Dari Komentar Negatif")
-                    create_wordcloud(df_negatif, "")
-
-            with tab3:
-                st.header("Detail Data dan Hasil Analisis")
-                st.dataframe(df, use_container_width=True, hide_index=True)
-
-    except Exception as e:
-        st.error(f"❌ Terjadi kesalahan: {e}")
-        st.info("Pastikan konfigurasi di sidebar benar, file `secrets.toml` ada, dan spreadsheet sudah dibagikan dengan email service account.")
+st.markdown(
+    """
+<div class="deep-card" style="margin-top:12px;">
+  <b>Format kolom yang disarankan (Google Sheets):</b>
+  <ul>
+    <li><code>timestamp</code> (datetime, opsional)</li>
+    <li><code>ulasan</code> (teks)</li>
+    <li><code>sentiment</code> (akan diisi otomatis)</li>
+    <li><code>score</code> (akan diisi otomatis)</li>
+  </ul>
+</div>
+""",
+    unsafe_allow_html=True
+)
