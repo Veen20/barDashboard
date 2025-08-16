@@ -27,11 +27,19 @@ from wordcloud import WordCloud
 
 import streamlit as st
 
-# Load custom CSS
-with open(".streamlit/style.css") as f:
-    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-
-
+# Tambah CSS untuk background foto
+st.markdown("""
+    <style>
+    .stApp {
+        background: linear-gradient(rgba(11,16,32,0.85), rgba(11,16,32,0.85)),
+                    url("assets/samsat.jpg");
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+        color: #e6ecff;
+    }
+    </style>
+""", unsafe_allow_html=True)
 # Optional: nicer sidebar menu
 try:
     from streamlit_option_menu import option_menu
