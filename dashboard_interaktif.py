@@ -49,10 +49,12 @@ h1, h2, h3 { color: #c9d1d9; }
 </style>
 """, unsafe_allow_html=True)
 
+# --- PERBAIKAN BAGIAN NLTK ---
 # Download stopwords jika belum ada (diperlukan untuk wordcloud)
 try:
     nltk.data.find('corpora/stopwords')
-except nltk.downloader.DownloadError:
+except LookupError: # <-- PERBAIKAN DILAKUKAN DI SINI
+    st.info("Mengunduh data NLTK (stopwords)... Ini hanya terjadi sekali.")
     nltk.download('stopwords')
 
 
@@ -80,8 +82,6 @@ def fetch_data_from_gsheet(_gsheet_client, sheet_name, worksheet_name, comment_c
     data = sheet.get_all_records()
     df = pd.DataFrame(data)
 
-    # --- PENANGANAN KOLOM YANG LEBIH BAIK ---
-    # Periksa apakah kolom komentar ada (tidak case-sensitive)
     proper_comment_column = None
     for col in df.columns:
         if col.lower() == comment_column.lower():
@@ -89,18 +89,15 @@ def fetch_data_from_gsheet(_gsheet_client, sheet_name, worksheet_name, comment_c
             break
     
     if not proper_comment_column:
-        st.error(f"Kolom '{comment_column}' tidak ditemukan di spreadsheet. Kolom yang tersedia: {df.columns.tolist()}")
+        st.error(f"Kolom '{comment_column}' tidak ditemukan. Kolom yang tersedia: {df.columns.tolist()}")
         return pd.DataFrame()
     
-    # Ganti nama kolom komentar menjadi 'komentar' untuk konsistensi
     df.rename(columns={proper_comment_column: 'komentar'}, inplace=True)
 
-    # Konversi kolom 'Tanggal' ke datetime
     if 'Tanggal' in df.columns:
         df['tanggal'] = pd.to_datetime(df['Tanggal'], errors='coerce')
-        df = df.dropna(subset=['tanggal']) # Hapus baris dengan tanggal tidak valid
+        df.dropna(subset=['tanggal'], inplace=True)
     
-    # Hapus baris dengan komentar kosong
     df = df[df['komentar'].astype(str).str.strip() != '']
     return df
 
@@ -121,7 +118,6 @@ def analyze_sentiment(_df, _model):
     _df['skor'] = [res['score'] for res in results]
     return _df
 
-# --- FUNGSI-FUNGSI VISUALISASI --- (Sama seperti sebelumnya, tapi lebih baik ditaruh di sini)
 def create_wordcloud(text_series, title):
     stopwords_indonesia = set(nltk.corpus.stopwords.words('indonesian'))
     text = ' '.join(text_series.astype(str).tolist())
@@ -136,12 +132,11 @@ def create_wordcloud(text_series, title):
 
 # --- UI APLIKASI STREAMLIT ---
 
-# Sidebar untuk konfigurasi
 with st.sidebar:
     st.title("⚙️ Konfigurasi Dasbor")
     st.markdown("Masukkan detail Google Spreadsheet Anda di bawah ini.")
     
-    NAMA_SPREADSHEET = st.text_input("Nama Google Spreadsheet", value="Nama Spreadsheet Anda")
+    NAMA_SPREADSHEET = st.text_input("Nama Google Spreadsheet", value="")
     NAMA_WORKSHEET = st.text_input("Nama Worksheet", value="Sheet1")
     KOLOM_KOMENTAR = st.text_input("Nama Kolom Komentar", value="Komentar")
 
@@ -156,65 +151,66 @@ st.title("📊 Dasbor Analisis Sentimen Komprehensif")
 st.markdown("Menganalisis komentar dari Google Sheets menggunakan Model IndoBERT.")
 
 # Main logic
-try:
-    gsheet_client = connect_to_gsheet()
-    raw_df = fetch_data_from_gsheet(gsheet_client, NAMA_SPREADSHEET, NAMA_WORKSHEET, KOLOM_KOMENTAR)
-    
-    if raw_df.empty:
-        st.warning("⚠️ Tidak ada data untuk dianalisis. Periksa konfigurasi sidebar atau isi spreadsheet Anda.")
-    else:
-        sentiment_model = load_sentiment_model()
-        df = analyze_sentiment(raw_df.copy(), sentiment_model)
+if not NAMA_SPREADSHEET:
+    st.info("Silakan masukkan Nama Google Spreadsheet di sidebar untuk memulai.")
+else:
+    try:
+        gsheet_client = connect_to_gsheet()
+        raw_df = fetch_data_from_gsheet(gsheet_client, NAMA_SPREADSHEET, NAMA_WORKSHEET, KOLOM_KOMENTAR)
+        
+        if raw_df.empty:
+            st.warning("⚠️ Tidak ada data untuk dianalisis. Periksa konfigurasi sidebar atau isi spreadsheet Anda.")
+        else:
+            sentiment_model = load_sentiment_model()
+            df = analyze_sentiment(raw_df.copy(), sentiment_model)
 
-        tab1, tab2, tab3 = st.tabs(["📈 Ringkasan & Tren", "🔑 Analisis Kata Kunci", "📄 Jelajahi Data"])
+            tab1, tab2, tab3 = st.tabs(["📈 Ringkasan & Tren", "🔑 Analisis Kata Kunci", "📄 Jelajahi Data"])
 
-        with tab1:
-            st.header("Ringkasan Metrik Utama")
-            col1, col2, col3, col4 = st.columns(4)
-            sentiment_counts = df['sentimen'].value_counts()
-            
-            col1.metric("Total Komentar", len(df))
-            col2.metric("👍 Komentar Positif", sentiment_counts.get('Positif', 0))
-            col3.metric("👎 Komentar Negatif", sentiment_counts.get('Negatif', 0))
-            col4.metric("😐 Komentar Netral", sentiment_counts.get('Netral', 0))
-
-            st.header("Distribusi Sentimen")
-            fig_pie = px.pie(df, names='sentimen', title='Persentase Sentimen', hole=0.4,
-                             color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
-                             template='plotly_dark')
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-            # --- VISUALISASI BARU: TREN SENTIMEN ---
-            if 'tanggal' in df.columns:
-                st.header("Tren Sentimen Berdasarkan Tanggal")
-                df_tren = df.copy()
-                df_tren['tanggal_saja'] = df_tren['tanggal'].dt.date
-                sentimen_per_hari = df_tren.groupby(['tanggal_saja', 'sentimen']).size().unstack(fill_value=0)
+            with tab1:
+                st.header("Ringkasan Metrik Utama")
+                col1, col2, col3, col4 = st.columns(4)
+                sentiment_counts = df['sentimen'].value_counts()
                 
-                fig_tren = px.line(sentimen_per_hari, x=sentimen_per_hari.index, y=sentimen_per_hari.columns,
-                                   title='Jumlah Komentar per Hari', markers=True,
-                                   labels={'tanggal_saja': 'Tanggal', 'value': 'Jumlah Komentar', 'sentimen': 'Sentimen'},
-                                   color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
-                                   template='plotly_dark')
-                st.plotly_chart(fig_tren, use_container_width=True)
+                col1.metric("Total Komentar", len(df))
+                col2.metric("👍 Komentar Positif", sentiment_counts.get('Positif', 0))
+                col3.metric("👎 Komentar Negatif", sentiment_counts.get('Negatif', 0))
+                col4.metric("😐 Komentar Netral", sentiment_counts.get('Netral', 0))
 
+                st.header("Distribusi Sentimen")
+                fig_pie = px.pie(df, names='sentimen', title='Persentase Sentimen', hole=0.4,
+                                 color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
+                                 template='plotly_dark')
+                st.plotly_chart(fig_pie, use_container_width=True)
 
-        with tab2:
-            st.header("Kata Kunci yang Paling Sering Muncul")
-            df_positif = df[df['sentimen'] == 'Positif']['komentar']
-            df_negatif = df[df['sentimen'] == 'Negatif']['komentar']
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Dari Komentar Positif")
-                create_wordcloud(df_positif, "")
-            with col2:
-                st.subheader("Dari Komentar Negatif")
-                create_wordcloud(df_negatif, "")
+                if 'tanggal' in df.columns:
+                    st.header("Tren Sentimen Berdasarkan Tanggal")
+                    df_tren = df.copy()
+                    df_tren['tanggal_saja'] = df_tren['tanggal'].dt.date
+                    sentimen_per_hari = df_tren.groupby(['tanggal_saja', 'sentimen']).size().unstack(fill_value=0)
+                    
+                    fig_tren = px.line(sentimen_per_hari, x=sentimen_per_hari.index, y=sentimen_per_hari.columns,
+                                       title='Jumlah Komentar per Hari', markers=True,
+                                       labels={'tanggal_saja': 'Tanggal', 'value': 'Jumlah Komentar', 'sentimen': 'Sentimen'},
+                                       color_discrete_map={'Positif':'green', 'Negatif':'red', 'Netral':'grey'},
+                                       template='plotly_dark')
+                    st.plotly_chart(fig_tren, use_container_width=True)
 
-        with tab3:
-            st.header("Detail Data dan Hasil Analisis")
-            st.dataframe(df, use_container_width=True, hide_index=True)
+            with tab2:
+                st.header("Kata Kunci yang Paling Sering Muncul")
+                df_positif = df[df['sentimen'] == 'Positif']['komentar']
+                df_negatif = df[df['sentimen'] == 'Negatif']['komentar']
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.subheader("Dari Komentar Positif")
+                    create_wordcloud(df_positif, "")
+                with col2:
+                    st.subheader("Dari Komentar Negatif")
+                    create_wordcloud(df_negatif, "")
 
-except Exception as e:
-    st.error(f"❌ Terjadi kesalahan tak terduga: {e}")
-    st.info("Pastikan konfigurasi di sidebar sudah benar, file `secrets.toml` ada, dan spreadsheet sudah dibagikan dengan email service account.")
+            with tab3:
+                st.header("Detail Data dan Hasil Analisis")
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+    except Exception as e:
+        st.error(f"❌ Terjadi kesalahan: {e}")
+        st.info("Pastikan konfigurasi di sidebar benar, file `secrets.toml` ada, dan spreadsheet sudah dibagikan dengan email service account.")
