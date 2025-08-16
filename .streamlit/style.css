@@ -1,0 +1,15 @@
+/* Background image */
+.stApp {
+    background-image: url("../assets/background.jpg");
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
+}
+
+/* Card-like effect for widgets */
+.block-container {
+    background: rgba(15, 20, 40, 0.8);
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0px 4px 20px rgba(0,0,0,0.5);
+}
