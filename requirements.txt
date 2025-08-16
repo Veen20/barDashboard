@@ -1,14 +1,3 @@
-streamlit>=1.18
-pandas
-numpy
-plotly
-matplotlib
-wordcloud
-transformers
-torch
-Sastrawi
-streamlit-option-menu
-statsmodels
 streamlit
 pandas
 gspread
@@ -18,4 +7,4 @@ transformers
 wordcloud
 plotly
 scikit-learn
-
+nltk
