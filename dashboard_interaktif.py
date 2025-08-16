@@ -27,28 +27,10 @@ from wordcloud import WordCloud
 
 import streamlit as st
 
-# CSS untuk menambahkan background image
-page_bg_img = """
-<style>
-[data-testid="stAppViewContainer"] {
-    background-image: url("samsat.jpg");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-}
-[data-testid="stHeader"] {
-    background: rgba(0,0,0,0);  /* header transparan */
-}
-[data-testid="stSidebar"] {
-    background-color: rgba(15, 20, 35, 0.95); /* sidebar semi-transparan */
-}
-</style>
-"""
+# Load custom CSS
+with open(".streamlit/style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-st.markdown(page_bg_img, unsafe_allow_html=True)
-
-st.title("📊 Dashboard Modern dengan Background")
-st.write("Tampilan dengan tema biru keunguan + background image.")
 
 # Optional: nicer sidebar menu
 try:
